@@ -1,6 +1,16 @@
 """
 Core Intelligence Engine for AI Agent Development Framework
 """
+from abc import ABC, abstractmethod
+from typing import Dict, List, Optional, Union
+from dataclasses import dataclass
+import logging
+from pathlib import Path
+import yaml
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class Agent(ABC):
     """Base class for all AI agents"""
@@ -19,18 +29,6 @@ class Agent(ABC):
     def execute_task(self, task: Dict) -> Dict:
         """Execute a task"""
         pass
-
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
-import json
-import logging
-from pathlib import Path
-import yaml
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 @dataclass
 class AgentCapability:
@@ -123,59 +121,90 @@ class AgentFactory:
         # Generate configuration
         self._generate_config(agent_dir, config)
 
-    def _generate_main_class(self, agent_dir: Path, config: AgentConfig):
-        """Generate the main agent class file"""
+def _generate_main_class(self, agent_dir: Path, config: AgentConfig):
+    """Generate the main agent class file"""
+    try:
         template = self._load_template('agent_class.py.template')
-        content = template.format(
-            name=config.name,
-            version=config.version,
-            capabilities=config.capabilities
-        )
+        logger.info(f"Formatting template for agent: {config.name}")
+        
+        # Use a dictionary for string formatting
+        format_dict = {
+            'name': config.name,
+            'version': config.version
+        }
+        
+        content = template.safe_substitute(format_dict) if hasattr(template, 'safe_substitute') else template.format(**format_dict)
         
         with open(agent_dir / 'agent.py', 'w') as f:
             f.write(content)
+                
+    except Exception as e:
+        logger.error(f"Error generating main class: {str(e)}")
+        raise
 
     def _generate_capabilities(self, agent_dir: Path, config: AgentConfig):
         """Generate capability implementations"""
-        cap_dir = agent_dir / 'capabilities'
-        cap_dir.mkdir(exist_ok=True)
-        
-        for cap_name in config.capabilities:
-            capability = self.core.capabilities[cap_name]
-            template = self._load_template('capability.py.template')
-            content = template.format(
-                name=cap_name,
-                implementation=capability.implementation
-            )
+        try:
+            cap_dir = agent_dir / 'capabilities'
+            cap_dir.mkdir(exist_ok=True)
             
-            with open(cap_dir / f'{cap_name}.py', 'w') as f:
-                f.write(content)
+            template = self._load_template('capability.py.template')
+            
+            for cap_name in config.capabilities:
+                capability = self.core.capabilities[cap_name]
+                content = template.format(
+                    name=cap_name,
+                    description=capability.description,
+                    implementation=capability.implementation
+                )
+                
+                with open(cap_dir / f'{cap_name}.py', 'w') as f:
+                    f.write(content)
+                    
+        except Exception as e:
+            logger.error(f"Error generating capabilities: {str(e)}")
+            raise
 
     def _generate_tests(self, agent_dir: Path, config: AgentConfig):
         """Generate test files for the agent"""
-        test_dir = agent_dir / 'tests'
-        test_dir.mkdir(exist_ok=True)
-        
-        # Generate main test file
-        template = self._load_template('test_agent.py.template')
-        content = template.format(
-            name=config.name,
-            capabilities=config.capabilities
-        )
-        
-        with open(test_dir / 'test_agent.py', 'w') as f:
-            f.write(content)
+        try:
+            test_dir = agent_dir / 'tests'
+            test_dir.mkdir(exist_ok=True)
+            
+            template = self._load_template('test_agent.py.template')
+            content = template.format(
+                name=config.name,
+                capabilities=", ".join(config.capabilities)
+            )
+            
+            with open(test_dir / 'test_agent.py', 'w') as f:
+                f.write(content)
+                
+        except Exception as e:
+            logger.error(f"Error generating tests: {str(e)}")
+            raise
 
     def _generate_config(self, agent_dir: Path, config: AgentConfig):
         """Generate agent configuration file"""
-        with open(agent_dir / 'config.yaml', 'w') as f:
-            yaml.dump(config.__dict__, f)
+        try:
+            with open(agent_dir / 'config.yaml', 'w') as f:
+                yaml.dump(config.__dict__, f)
+        except Exception as e:
+            logger.error(f"Error generating config: {str(e)}")
+            raise
 
     def _load_template(self, template_name: str) -> str:
         """Load a template file from the protected templates directory"""
-        template_path = self.core.config_path / 'templates' / template_name
-        with open(template_path, 'r') as f:
-            return f.read()
+        try:
+            template_path = self.core.config_path / 'templates' / template_name
+            logger.info(f"Loading template: {template_path}")
+            
+            with open(template_path, 'r') as f:
+                return f.read()
+                
+        except Exception as e:
+            logger.error(f"Error loading template {template_name}: {str(e)}")
+            raise
 
 class AgentManager:
     """Manages running AI agents"""
@@ -192,9 +221,11 @@ class AgentManager:
                 
             config = self.core.agents[agent_name]
             agent = self._load_agent(config)
-            self.running_agents[agent_name] = agent
             
-            return True
+            if agent and agent.initialize():
+                self.running_agents[agent_name] = agent
+                return True
+            return False
             
         except Exception as e:
             logger.error(f"Error starting agent: {str(e)}")
@@ -207,49 +238,23 @@ class AgentManager:
                 raise ValueError(f"Agent not running: {agent_name}")
                 
             agent = self.running_agents[agent_name]
-            agent.cleanup()
-            del self.running_agents[agent_name]
-            
-            return True
+            if agent.cleanup():
+                del self.running_agents[agent_name]
+                return True
+            return False
             
         except Exception as e:
             logger.error(f"Error stopping agent: {str(e)}")
             return False
 
-    def _load_agent(self, config: AgentConfig) -> 'Agent':
+    def _load_agent(self, config: AgentConfig) -> Optional['Agent']:
         """Load an agent from its implementation files"""
-        agent_path = Path(f"agents/{config.name}/agent.py")
-        # Implementation would dynamically load the agent class
-        pass
-
-# Example usage
-if __name__ == "__main__":
-    # Initialize core intelligence
-    config_path = Path("private/config")
-    core = CoreIntelligence(config_path)
-    
-    # Create agent factory
-    factory = AgentFactory(core)
-    
-    # Create sample agent configuration
-    agent_config = AgentConfig(
-        name="sample_agent",
-        version="1.0.0",
-        capabilities=["text_processing", "task_management"],
-        parameters={"max_tasks": 10},
-        security_level="medium",
-        environment={"PYTHON_VERSION": "3.9"}
-    )
-    
-    # Create the agent
-    success = factory.create_agent(agent_config)
-    if success:
-        logger.info("Successfully created sample agent")
-    
-    # Initialize agent manager
-    manager = AgentManager(core)
-    
-    # Start the agent
-    success = manager.start_agent("sample_agent")
-    if success:
-        logger.info("Successfully started sample agent")
+        try:
+            agent_path = Path(f"agents/{config.name}/agent.py")
+            # Implementation would dynamically load the agent class
+            # For now, return None as we haven't implemented dynamic loading
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error loading agent: {str(e)}")
+            return None
