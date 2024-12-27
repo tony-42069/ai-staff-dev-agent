@@ -36,3 +36,9 @@ ENV/
 
 # Local development
 .DS_Store
+
+# Sensitive Files
+src/agents/core_logic.py
+src/core/agent_config.py
+src/core/intelligence/*
+private/*
