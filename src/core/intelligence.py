@@ -2,11 +2,12 @@
 Core Intelligence Engine for AI Agent Development Framework
 """
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Callable
 from dataclasses import dataclass
 import logging
 from pathlib import Path
 import yaml
+import importlib.util
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,6 +50,22 @@ class AgentConfig:
     security_level: str
     environment: Dict[str, str]
 
+@dataclass
+class Capability:
+    """Simplified capability implementation"""
+    name: str
+    description: str
+    handler: Callable[[Dict], Dict]
+
+    def execute(self, task: Dict) -> Dict:
+        try:
+            return self.handler(task)
+        except Exception as e:
+            return {
+                'status': 'error',
+                'message': str(e)
+            }
+
 class CoreIntelligence:
     """Core Intelligence Engine for managing AI agents"""
     
@@ -57,6 +74,7 @@ class CoreIntelligence:
         self.capabilities: Dict[str, AgentCapability] = {}
         self.agents: Dict[str, AgentConfig] = {}
         self._load_configurations()
+        self._initialize_core_capabilities()
 
     def _load_configurations(self):
         """Load core configurations from protected directory"""
@@ -77,35 +95,60 @@ class CoreIntelligence:
             logger.error(f"Error loading configurations: {str(e)}")
             raise
 
+    def _initialize_core_capabilities(self):
+        """Initialize core development capabilities"""
+        self.capabilities['project_generation'] = Capability(
+            name='project_generation',
+            description='Creates new project structures',
+            handler=self._handle_project_generation
+        )
+        
+        self.capabilities['code_generation'] = Capability(
+            name='code_generation', 
+            description='Generates code and tests',
+            handler=self._handle_code_generation
+        )
+
+    def _handle_project_generation(self, task: Dict) -> Dict:
+        """Handle project generation requests"""
+        project_type = task.get('type')
+        name = task.get('name')
+        
+        # Project generation logic here
+        return {'status': 'success', 'path': f'projects/{name}'}
+
 class AgentFactory:
     """Factory for creating new AI agents"""
     
     def __init__(self, core_intelligence: CoreIntelligence):
         self.core = core_intelligence
 
-    def create_agent(self, config: AgentConfig) -> bool:
-        """Create a new agent based on configuration"""
-        try:
-            # Validate capabilities
-            for capability in config.capabilities:
-                if capability not in self.core.capabilities:
+    def create_agent(self, config: AgentConfig) -> Agent:
+        """Simplified agent creation"""
+        class DynamicAgent(Agent):
+            def __init__(self):
+                self.name = config.name
+                self.version = config.version
+                self.capabilities = {
+                    cap: self.core.capabilities[cap] 
+                    for cap in config.capabilities
+                }
+
+            def initialize(self) -> bool:
+                logger.info(f"Initializing {self.name}")
+                return True
+
+            def cleanup(self) -> bool:
+                logger.info(f"Cleaning up {self.name}")
+                return True
+
+            def execute_task(self, task: Dict) -> Dict:
+                capability = task.get('capability')
+                if capability not in self.capabilities:
                     raise ValueError(f"Unknown capability: {capability}")
+                return self.capabilities[capability].execute(task)
 
-            # Generate agent structure
-            agent_dir = Path(f"agents/{config.name}")
-            agent_dir.mkdir(parents=True, exist_ok=True)
-
-            # Create implementation files
-            self._generate_agent_files(agent_dir, config)
-            
-            # Register agent with core
-            self.core.agents[config.name] = config
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error creating agent: {str(e)}")
-            return False
+        return DynamicAgent()
 
     def _generate_agent_files(self, agent_dir: Path, config: AgentConfig):
         """Generate necessary files for the agent"""
@@ -216,7 +259,7 @@ class AgentManager:
     def start_agent(self, agent_name: str) -> bool:
         """Start an AI agent"""
         try:
-            if agent_name not in self.core.agents:
+            if (agent_name not in self.core.agents):
                 raise ValueError(f"Unknown agent: {agent_name}")
                 
             config = self.core.agents[agent_name]
@@ -248,12 +291,20 @@ class AgentManager:
             return False
 
     def _load_agent(self, config: AgentConfig) -> Optional['Agent']:
-        """Load an agent from its implementation files"""
+        """Dynamic agent loading"""
         try:
             agent_path = Path(f"agents/{config.name}/agent.py")
-            # Implementation would dynamically load the agent class
-            # For now, return None as we haven't implemented dynamic loading
-            return None
+            if not agent_path.exists():
+                agent = self.factory.create_agent(config)
+                return agent
+            
+            # Load existing agent
+            spec = importlib.util.spec_from_file_location(
+                config.name, agent_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            agent_class = getattr(module, f"{config.name}Agent")
+            return agent_class()
             
         except Exception as e:
             logger.error(f"Error loading agent: {str(e)}")
