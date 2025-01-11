@@ -37,8 +37,21 @@ ENV/
 # Local development
 .DS_Store
 
-# Sensitive Files
+# Add these specific protections to your existing .gitignore file
+@"
+
+# Core IP Protection
 src/agents/core_logic.py
+src/agents/intelligence_engine.py
 src/core/agent_config.py
 src/core/intelligence/*
+src/core/strategies/*
 private/*
+*.secret.*
+**/internal_config/*
+
+# Sensitive Configurations
+config.private.py
+agent_params.py
+decision_matrix.py
+"@ | Add-Content -Path ".gitignore"
