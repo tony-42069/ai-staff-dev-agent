@@ -8,7 +8,6 @@ import {
   Textarea,
   FormErrorMessage,
   useToast,
-  Select,
   Checkbox,
   Stack
 } from '@chakra-ui/react';
