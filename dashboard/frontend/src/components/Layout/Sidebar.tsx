@@ -1,8 +1,14 @@
 import { Box, VStack, Link, Text } from '@chakra-ui/react'
 import { Link as RouterLink } from 'react-router-dom'
+import { FC } from 'react'
 
-const Sidebar = () => {
-  const navItems = [
+interface NavItem {
+  name: string
+  path: string
+}
+
+const Sidebar: FC = () => {
+  const navItems: NavItem[] = [
     { name: 'Dashboard', path: '/' },
     { name: 'Agents', path: '/agents' },
     { name: 'Projects', path: '/projects' },

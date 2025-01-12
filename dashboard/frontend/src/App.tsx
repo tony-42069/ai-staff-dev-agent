@@ -1,9 +1,9 @@
 import { ChakraProvider, Box, Grid } from '@chakra-ui/react'
 import { BrowserRouter as Router } from 'react-router-dom'
-import Header from './components/Layout/Header'
-import Sidebar from './components/Layout/Sidebar'
+import { FC } from 'react'
+import { Header, Sidebar } from './components/Layout'
 
-function App() {
+const App: FC = () => {
   return (
     <ChakraProvider>
       <Router>

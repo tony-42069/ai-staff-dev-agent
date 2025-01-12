@@ -1,7 +1,8 @@
 import { Box, Flex, Heading, Spacer, IconButton, useColorMode } from '@chakra-ui/react'
 import { SunIcon, MoonIcon } from '@chakra-ui/icons'
+import { FC } from 'react'
 
-const Header = () => {
+const Header: FC = () => {
   const { colorMode, toggleColorMode } = useColorMode()
 
   return (
