@@ -1,8 +1,9 @@
 import { ChakraProvider, Box, Grid } from '@chakra-ui/react'
-import { BrowserRouter as Router } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { FC } from 'react'
 import { Header, Sidebar } from './components/Layout'
 import QueryProvider from './providers/QueryProvider'
+import AgentsPage from './pages/Agents'
 
 const App: FC = () => {
   return (
@@ -22,7 +23,10 @@ const App: FC = () => {
                 <Sidebar />
               </Box>
               <Box p={4} bg="gray.50">
-                {/* Main content will go here */}
+                <Routes>
+                  <Route path="/agents" element={<AgentsPage />} />
+                  {/* Add more routes here */}
+                </Routes>
               </Box>
             </Grid>
           </Box>
