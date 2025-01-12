@@ -4,6 +4,7 @@ import { FC } from 'react'
 import { Header, Sidebar } from './components/Layout'
 import QueryProvider from './providers/QueryProvider'
 import AgentsPage from './pages/Agents'
+import ProjectsPage from './pages/Projects'
 
 const App: FC = () => {
   return (
@@ -25,6 +26,7 @@ const App: FC = () => {
               <Box p={4} bg="gray.50">
                 <Routes>
                   <Route path="/agents" element={<AgentsPage />} />
+                  <Route path="/projects" element={<ProjectsPage />} />
                   {/* Add more routes here */}
                 </Routes>
               </Box>
