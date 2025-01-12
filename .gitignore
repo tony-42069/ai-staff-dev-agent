@@ -54,4 +54,6 @@ private/*
 config.private.py
 agent_params.py
 decision_matrix.py
-"@ | Add-Content -Path ".gitignore"
+"@ | Add-Content -Path ".gitignore"cline_docs/
+
+cline_docs
