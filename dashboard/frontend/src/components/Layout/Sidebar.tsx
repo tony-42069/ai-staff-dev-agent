@@ -1,5 +1,5 @@
 import { Box, VStack, Link, Icon } from '@chakra-ui/react'
-import { FiHome, FiUsers, FiFolder, FiSettings } from 'react-icons/fi'
+import { FiHome, FiUsers, FiFolder, FiSettings, FiMessageSquare } from 'react-icons/fi'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { FC } from 'react'
 
@@ -54,6 +54,9 @@ const Sidebar: FC = () => {
         </NavItem>
         <NavItem to="/projects" icon={FiFolder}>
           Projects
+        </NavItem>
+        <NavItem to="/chat" icon={FiMessageSquare}>
+          Chat
         </NavItem>
         <NavItem to="/settings" icon={FiSettings}>
           Settings

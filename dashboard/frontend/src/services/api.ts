@@ -1,32 +1,31 @@
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: 'http://localhost:8000/api/v1',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+const BASE_URL = 'http://localhost:8000/api/v1';
+
+export const api = axios.create({
+  baseURL: BASE_URL,
 });
 
 export interface Agent {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   capabilities: string[];
   status: 'idle' | 'busy' | 'error';
   created_at: string;
   updated_at: string;
 }
 
-export interface Project {
+export type Project = {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   repository_url?: string;
-  status: 'active' | 'archived' | 'completed';
+  status: 'active' | 'completed' | 'archived';
   assigned_agents: string[];
   created_at: string;
   updated_at: string;
-}
+};
 
 // Agent API
 export const agentApi = {

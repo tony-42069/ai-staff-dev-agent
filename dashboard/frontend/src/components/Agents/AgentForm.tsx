@@ -1,136 +1,101 @@
-import {
-  Box,
-  Button,
-  FormControl,
-  FormLabel,
-  Input,
-  VStack,
-  Textarea,
-  FormErrorMessage,
-  useToast
-} from '@chakra-ui/react';
-import { FC, useState } from 'react';
-import { useAgents } from '../../hooks/useAgents';
+import { Box, Button, FormControl, FormErrorMessage, FormLabel, Input, Textarea, useToast, VStack } from '@chakra-ui/react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import { useState } from 'react';
+import type { Agent } from '../../services/api';
 
-interface FormData {
-  name: string;
-  description: string;
-  capabilities: string;
-}
+const BASE_URL = 'http://localhost:8000/api/v1';
 
-const AgentForm: FC = () => {
-  const [formData, setFormData] = useState<FormData>({
-    name: '',
-    description: '',
-    capabilities: ''
-  });
-  const [errors, setErrors] = useState<Partial<FormData>>({});
-  const { createAgent } = useAgents();
+const AgentForm = () => {
   const toast = useToast();
+  const queryClient = useQueryClient();
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [capabilities, setCapabilities] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const validateForm = () => {
-    const newErrors: Partial<FormData> = {};
-    if (!formData.name) {
-      newErrors.name = 'Name is required';
-    }
-    if (!formData.capabilities) {
-      newErrors.capabilities = 'At least one capability is required';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-
-    try {
-      await createAgent.mutateAsync({
-        name: formData.name,
-        description: formData.description,
-        capabilities: formData.capabilities.split(',').map(cap => cap.trim()),
-        status: 'idle'
-      });
-
-      setFormData({
-        name: '',
-        description: '',
-        capabilities: ''
-      });
-
+  const createAgentMutation = useMutation({
+    mutationFn: async (newAgent: Partial<Agent>) => {
+      const response = await axios.post(`${BASE_URL}/agents`, newAgent);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
       toast({
         title: 'Agent created',
-        description: 'The agent was successfully created',
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
-    } catch (error) {
+      // Reset form
+      setName('');
+      setDescription('');
+      setCapabilities('');
+      setErrors({});
+    },
+    onError: () => {
       toast({
-        title: 'Error',
-        description: 'Failed to create agent',
+        title: 'Error creating agent',
         status: 'error',
         duration: 3000,
         isClosable: true,
       });
     }
+  });
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!name) newErrors.name = 'Name is required';
+    if (!capabilities) newErrors.capabilities = 'Capabilities are required';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear error when user starts typing
-    if (errors[name as keyof FormData]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: undefined
-      }));
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    createAgentMutation.mutate({
+      name,
+      description,
+      capabilities: capabilities.split(',').map(c => c.trim()),
+    });
   };
 
   return (
     <Box as="form" onSubmit={handleSubmit}>
       <VStack spacing={4} align="stretch">
         <FormControl isInvalid={!!errors.name}>
-          <FormLabel>Name</FormLabel>
+          <FormLabel htmlFor="name">Name</FormLabel>
           <Input
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            placeholder="Enter agent name"
+            id="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
           <FormErrorMessage>{errors.name}</FormErrorMessage>
         </FormControl>
 
         <FormControl>
-          <FormLabel>Description</FormLabel>
+          <FormLabel htmlFor="description">Description</FormLabel>
           <Textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            placeholder="Enter agent description"
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
           />
         </FormControl>
 
         <FormControl isInvalid={!!errors.capabilities}>
-          <FormLabel>Capabilities</FormLabel>
+          <FormLabel htmlFor="capabilities">Capabilities (comma-separated)</FormLabel>
           <Input
-            name="capabilities"
-            value={formData.capabilities}
-            onChange={handleChange}
-            placeholder="Enter capabilities (comma-separated)"
+            id="capabilities"
+            value={capabilities}
+            onChange={(e) => setCapabilities(e.target.value)}
+            placeholder="e.g., test,debug,deploy"
           />
           <FormErrorMessage>{errors.capabilities}</FormErrorMessage>
         </FormControl>
 
-        <Button
-          type="submit"
-          colorScheme="blue"
-          isLoading={createAgent.isPending}
-        >
+        <Button type="submit" colorScheme="blue">
           Create Agent
         </Button>
       </VStack>

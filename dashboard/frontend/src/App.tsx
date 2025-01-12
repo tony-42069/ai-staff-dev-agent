@@ -1,10 +1,11 @@
 import { ChakraProvider, Box, Grid } from '@chakra-ui/react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { FC } from 'react'
-import { Header, Sidebar } from './components/Layout'
-import QueryProvider from './providers/QueryProvider'
-import AgentsPage from './pages/Agents'
-import ProjectsPage from './pages/Projects'
+import { Header, Sidebar } from '@/components/Layout'
+import QueryProvider from '@/providers/QueryProvider'
+import AgentsPage from '@/pages/Agents'
+import ProjectsPage from '@/pages/Projects'
+import ChatPage from '@/pages/Chat'
 
 const App: FC = () => {
   return (
@@ -27,6 +28,7 @@ const App: FC = () => {
                 <Routes>
                   <Route path="/agents" element={<AgentsPage />} />
                   <Route path="/projects" element={<ProjectsPage />} />
+                  <Route path="/chat" element={<ChatPage />} />
                   {/* Add more routes here */}
                 </Routes>
               </Box>
