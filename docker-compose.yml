@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  backend:
+    build: ./dashboard/backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+    environment:
+      - ENVIRONMENT=development
+
+  frontend:
+    build: ./dashboard/backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./dashboard/frontend:/app
+    depends_on:
+      - backend
