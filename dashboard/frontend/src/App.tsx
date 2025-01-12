@@ -26,10 +26,10 @@ const App: FC = () => {
               </Box>
               <Box p={4} bg="gray.50">
                 <Routes>
+                  <Route path="/" element={<AgentsPage />} />
                   <Route path="/agents" element={<AgentsPage />} />
                   <Route path="/projects" element={<ProjectsPage />} />
                   <Route path="/chat" element={<ChatPage />} />
-                  {/* Add more routes here */}
                 </Routes>
               </Box>
             </Grid>
