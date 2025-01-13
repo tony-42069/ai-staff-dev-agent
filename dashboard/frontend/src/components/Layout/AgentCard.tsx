@@ -1,12 +1,13 @@
-import { Box, Badge, Text } from '@chakra-ui/react'
+import React from 'react';
+import { Box, Badge, Text, Flex } from '@chakra-ui/react';
 
 interface AgentCardProps {
   name: string;
-  status: string;
+  status: 'active' | 'inactive';  // More specific type
   type: string;
 }
 
-export const AgentCard = ({ name, status, type }: AgentCardProps) => {
+const AgentCard: React.FC<AgentCardProps> = ({ name, status, type }) => {
   return (
     <Box p={5} shadow="md" borderWidth="1px" borderRadius="lg">
       <Flex align="baseline">
@@ -27,5 +28,7 @@ export const AgentCard = ({ name, status, type }: AgentCardProps) => {
         {name}
       </Text>
     </Box>
-  )
-}
+  );
+};
+
+export default AgentCard;
