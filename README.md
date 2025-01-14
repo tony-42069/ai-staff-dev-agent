@@ -4,15 +4,31 @@ A sophisticated framework for creating and managing AI development agents. This 
 
 ## ✨ Features
 
-
 - **Core Intelligence Engine**: Manages agent configurations and capabilities
 - **Agent Factory**: Creates new AI agents with customizable capabilities
 - **Agent Manager**: Handles agent lifecycle and execution
-- **Template System**: Generates agent code and configuration files
-- **Testing Framework**: Comprehensive unit tests for core functionality
+- **Enhanced Template System**: 
+  - Dynamic template generation
+  - Capability inheritance support
+  - Configuration validation
+  - Comprehensive error handling
+- **Configuration Management**:
+  - Dynamic configuration updates
+  - Backup and restore functionality
+  - Inheritance validation
+  - Version control integration
+- **Testing Framework**: 
+  - Automated test generation
+  - Comprehensive test suite
+  - Detailed test reporting
+  - CI/CD pipeline integration
+- **Improvement Tracking**:
+  - Priority-based improvements
+  - Dependency management
+  - Progress tracking
+  - Status reporting
 
 ## 🚦 Getting Started
-
 
 ### Prerequisites
 - Python 3.8+
@@ -31,41 +47,96 @@ A sophisticated framework for creating and managing AI development agents. This 
    ```
 
 ### Running Tests
-To verify the installation and functionality:
+The project includes several testing tools:
+
+1. Run the comprehensive test suite:
+```bash
+python private/config/templates/run_tests.py
+```
+
+2. Generate tests for a specific agent:
+```bash
+python private/config/templates/generate_agent_tests.py <agent_name>
+```
+
+3. Run individual test files:
 ```bash
 python -m unittest test_dev_agent.py -v
 ```
 
-## 🗂️ Project Structure
+Test reports are generated in JSON and text formats in the `test_reports` directory.
 
+## 🗂️ Project Structure
 
 ```
 ai-staff-dev-agent/
 ├── src/
 │   └── core/
-│       └── intelligence.py       # Core intelligence implementation
+│       └── intelligence.py        # Core intelligence implementation
+├── private/
+│   └── config/
+│       ├── templates/             # System templates
+│       │   ├── agent_class.py.template
+│       │   ├── capability.py.template
+│       │   ├── test_agent.py.template
+│       │   ├── config_manager.py
+│       │   ├── test_generator.py
+│       │   ├── run_tests.py
+│       │   ├── improvement_tracker.py
+│       │   └── manage_improvements.py
+│       ├── agents.yaml           # Agent configurations
+│       └── capabilities.yaml     # Capability configurations
 ├── tests/
-│   └── test_dev_agent.py         # Unit tests
-├── requirements.txt              # Python dependencies
-└── README.md                     # This documentation
+│   ├── test_dev_agent.py        # Core unit tests
+│   └── test_suite.py            # Comprehensive test suite
+├── test_reports/                # Generated test reports
+├── requirements.txt             # Python dependencies
+└── README.md                    # Documentation
 ```
 
 ## 📊 Current Status
 
-
 ✅ Core framework implemented  
 ✅ Agent creation and management working  
-✅ Comprehensive test coverage  
-✅ Template system for agent generation  
+✅ Enhanced template system completed  
+✅ Dynamic agent loading implemented  
+✅ Capability inheritance system working  
+✅ Configuration management system active  
+✅ Comprehensive testing framework in place  
+✅ Improvement tracking system implemented  
 
 ## 🛣️ Next Steps
 
+Use the improvement tracking system to view and manage next steps:
+```bash
+# List all planned improvements
+python private/config/templates/manage_improvements.py list
 
-- [ ] Complete template system implementation
-- [ ] Add dynamic agent loading
-- [ ] Implement capability inheritance
-- [ ] Set up configuration management
-- [ ] Add deployment and monitoring capabilities
+# Show next improvements to implement
+python private/config/templates/manage_improvements.py next
+
+# Generate improvement status report
+python private/config/templates/manage_improvements.py report
+```
+
+## 🛠️ Configuration Management
+
+Manage system configurations using the provided CLI tool:
+```bash
+# List current configurations
+python private/config/templates/manage_config.py list-agents
+python private/config/templates/manage_config.py list-capabilities
+
+# Update configurations
+python private/config/templates/manage_config.py update-agent <name> <updates>
+python private/config/templates/manage_config.py update-capability <name> <updates>
+
+# Create configuration backup
+python private/config/templates/manage_config.py backup
+
+# Validate configurations
+python private/config/templates/manage_config.py validate
+```
 
 ## 🤝 Contributing
 
