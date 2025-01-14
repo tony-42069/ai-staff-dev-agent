@@ -52,6 +52,30 @@ Template for generating comprehensive test suites.
 - Inheritance validation
 - Error case coverage
 
+#### Expected Structure:
+```python
+class TestAgentCapabilities(unittest.TestCase):
+    def setUp(self):
+        self.agent = AgentUnderTest()
+        self.capabilities = self.agent.get_capabilities()
+
+    def test_capability_requirements(self):
+        """Validate capability requirements are met."""
+        for capability in self.capabilities:
+            requirements = capability.get_requirements()
+            # Verify each requirement
+            for req in requirements:
+                self.assertTrue(
+                    self.agent.has_requirement(req),
+                    f"Missing requirement: {req}"
+                )
+```
+
+#### Current Limitations:
+- Requirement handling needs refactoring
+- Template structure must match capability configuration
+- Inheritance validation needs enhancement
+
 ## Configuration
 
 ### Agent Configuration (`agents.yaml`)
@@ -144,11 +168,14 @@ except CapabilityError as e:
    - Generate comprehensive tests
    - Include error cases
    - Validate inheritance chains
+   - Verify requirement handling
+   - Test configuration compatibility
 
 4. **Configuration Management**
    - Use version control
    - Maintain backups
    - Validate changes
+   - Ensure format consistency
 
 ## Troubleshooting
 
@@ -165,6 +192,19 @@ Common issues and solutions:
    - Validate parameter inheritance
 
 3. **Test Generation Problems**
-   - Verify agent configuration
-   - Check capability implementations
-   - Ensure test templates are valid
+   - Known Issue: Test generation fails with KeyError: 'requirement'
+     * Root Cause: Mismatch between capability configuration and test template structure
+     * Resolution: Update test templates to match current capability format
+   - Verify capability configuration format:
+     * Check requirements are properly defined
+     * Validate inheritance structure
+     * Ensure all required fields are present
+   - Review test template compatibility:
+     * Verify template handles current capability structure
+     * Check requirement handling logic
+     * Test inheritance chain validation
+   - Common Solutions:
+     * Update test templates to match capability format
+     * Add validation for configuration structure
+     * Implement proper error handling
+     * Test inheritance scenarios thoroughly

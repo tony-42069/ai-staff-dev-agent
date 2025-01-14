@@ -225,13 +225,29 @@ ready = tracker.get_next_improvements()
 
 ## Troubleshooting
 
-### 1. Test Failures
+### 1. Known Test Generation Issue
+- Issue: Test generation fails with KeyError: 'requirement'
+- Root Cause: Mismatch between capability configuration structure and test template expectations
+- Impact:
+  * Unable to generate proper test cases for agents
+  * Blocks proper validation of agent capabilities
+  * Prevents automated testing of new features
+- Resolution Steps:
+  1. Update test templates to handle current capability structure
+  2. Refactor requirement handling in test generation
+  3. Add validation for capability configuration format
+  4. Implement proper error handling for missing requirements
+  5. Add test cases for capability inheritance scenarios
+
+### 2. General Test Failures
 - Check test configuration
 - Verify test data
 - Review error messages
 - Check component dependencies
+- Validate capability inheritance chains
+- Ensure template compatibility
 
-### 2. Improvement Issues
+### 3. Improvement Issues
 - Validate dependency chain
 - Check status transitions
 - Verify priority assignments

@@ -6,12 +6,11 @@
   name: base_development
   parameters:
     templates_path: private/templates
-  requirement:
-    name: pydantic
-    type: package
   requirements:
-  - pydantic
-  - PyYAML
+  - name: pydantic
+    type: package
+  - name: PyYAML
+    type: package
 - description: Base capability for code operations
   implementation: "try:\n    # Base code operations\n    self._setup_code_environment()\n\
     \    return {\"status\": \"success\", \"message\": \"Base code operations completed\"\
@@ -20,11 +19,9 @@
   parameters:
     code_style: pep8
     documentation_style: google
-  requirement:
-    name: black
-    type: package
   requirements:
-  - black
+  - name: black
+    type: package
 - description: Creates new project structures and configurations
   implementation: "try:\n    project_type = task.get('project_type')\n    project_name\
     \ = task.get('project_name')\n    \n    # Generate project structure\n    structure\
@@ -41,12 +38,11 @@
     - flask
     - django
   parent: base_development
-  requirement:
-    name: cookiecutter
-    type: package
   requirements:
-  - cookiecutter
-  - GitPython
+  - name: cookiecutter
+    type: package
+  - name: GitPython
+    type: package
 - description: Creates new AI agents with specified capabilities
   implementation: "try:\n    agent_type = task.get('agent_type')\n    capabilities\
     \ = task.get('capabilities', [])\n    \n    # Generate agent structure\n    agent_structure\
@@ -63,7 +59,8 @@
     capability_templates: private/templates/capabilities
   parent: base_development
   requirements:
-  - jinja2
+  - name: jinja2
+    type: package
 - description: Generates code based on requirements and specifications
   implementation: "try:\n    code_spec = task.get('specification')\n    language =\
     \ task.get('language', 'python')\n    \n    # Generate code structure\n    code\
@@ -77,11 +74,9 @@
   parameters:
     testing_framework: pytest
   parent: base_code_operations
-  requirement:
-    name: autopep8
-    type: package
   requirements:
-  - autopep8
+  - name: autopep8
+    type: package
 - description: Handles development tasks like testing, deployment, and maintenance
   implementation: "try:\n    task_type = task.get('task_type')\n    task_params =\
     \ task.get('parameters', {})\n    \n    # Execute development task\n    if task_type\
@@ -101,5 +96,7 @@
     test_coverage_threshold: 80
   parent: base_development
   requirements:
-  - pytest
-  - docker
+  - name: pytest
+    type: package
+  - name: docker
+    type: package

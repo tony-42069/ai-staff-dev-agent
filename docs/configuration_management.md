@@ -63,7 +63,9 @@ Defines capabilities with inheritance relationships and requirements.
 - name: base_capability
   description: "Base capability for operations"
   requirements:
-    - "requirement1"
+    - name: "requirement1"
+      type: "package"
+      version: ">=1.0.0"
   parameters:
     param1: "value1"
   implementation: |
@@ -73,10 +75,28 @@ Defines capabilities with inheritance relationships and requirements.
   parent: base_capability
   description: "Derived capability"
   requirements:
-    - "requirement2"
+    - name: "requirement2"
+      type: "system"
+      version: "latest"
   parameters:
     param2: "value2"
 ```
+
+#### Requirement Structure
+Requirements must follow this format to ensure compatibility with test generation:
+```yaml
+requirements:
+  - name: string      # Name of the requirement (required)
+    type: string      # Type of requirement: package, system, capability (required)
+    version: string   # Version specification (optional)
+    optional: bool    # Whether requirement is optional (default: false)
+```
+
+This structure is critical for:
+- Test generation compatibility
+- Proper inheritance handling
+- Validation system functionality
+- Error detection and reporting
 
 ## Command-Line Interface
 
@@ -134,10 +154,16 @@ class AgentConfig(BaseModel):
     security_level: str
     environment: Dict[str, str]
 
+class RequirementConfig(BaseModel):
+    name: str
+    type: str
+    version: Optional[str] = None
+    optional: bool = False
+
 class CapabilityConfig(BaseModel):
     name: str
     description: str
-    requirements: List[str]
+    requirements: List[RequirementConfig]
     parameters: Dict[str, Any]
     parent: Optional[str]
     implementation: str
@@ -202,7 +228,16 @@ backups/
 
 Common issues and solutions:
 
-1. **Validation Failures**
+1. **Test Generation Issues**
+   - Known Issue: KeyError: 'requirement' in test generation
+     * Cause: Mismatch between capability configuration and test expectations
+     * Solution: Ensure requirements follow the structured format above
+   - Validation Tips:
+     * Use proper requirement structure with name and type
+     * Verify inheritance properly merges requirements
+     * Check requirement compatibility across capabilities
+
+2. **Validation Failures**
    - Check configuration syntax
    - Verify required fields
    - Validate data types

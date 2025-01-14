@@ -114,14 +114,16 @@ class TestGenerator:
             }
         ]
         
-        # Only add requirement test case if capability has requirements
-        if capability.get("requirement") or capability.get("requirements"):
-            cases.append({
-                "name": "missing_requirement",
-                "method": "check_requirement",
-                "error_msg": f"Requirement not met for capability '{capability['name']}'",
-                "task": {"type": "basic"}
-            })
+        # Handle requirements
+        requirements = capability.get("requirements", [])
+        if requirements:
+            for req in requirements:
+                cases.append({
+                    "name": f"missing_{req['name']}_requirement",
+                    "method": "check_requirement",
+                    "error_msg": f"Requirement '{req['name']}' not met for capability '{capability['name']}'",
+                    "task": {"type": "basic"}
+                })
         
         # Add inheritance-specific error cases if capability has a parent
         if capability.get("parent"):
@@ -156,6 +158,19 @@ class TestGenerator:
             
         param_assertions_str = "\n".join(param_assertions)
         
+        # Add requirement assertions
+        req_assertions = []
+        for req in capability.get("requirements", []):
+            req_assertion = (
+                f"        self.assertTrue(\n"
+                f"            self.agent.check_requirement('{req['name']}'),\n"
+                f"            f\"Requirement '{req['name']}' not met\"\n"
+                f"        )"
+            )
+            req_assertions.append(req_assertion)
+            
+        req_assertions_str = "\n".join(req_assertions) if req_assertions else "        pass"
+        
         return f'''
     def {method_name}(self):
         """Test {capability['name']} capability"""
@@ -164,6 +179,9 @@ class TestGenerator:
         
         # Test parameters
 {param_assertions_str}
+        
+        # Test requirements
+{req_assertions_str}
         
         # Test execution
         result = capability.execute({{"type": "test"}})
