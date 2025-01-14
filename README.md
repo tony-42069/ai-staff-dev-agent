@@ -1,32 +1,76 @@
-# AiStaff Developer Agent 🤖
+# AI Staff Development Agent
 
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green.svg)](https://fastapi.tiangolo.com/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-
-## Overview
-A flexible and extensible framework for creating AI-powered development agents. This framework provides the foundation for building intelligent coding assistants that can help with various development tasks.
+A sophisticated framework for creating and managing AI development agents. This project provides core intelligence capabilities for agent creation, project generation, code generation, and development task management.
 
 ## Features
-- 🎯 Modular agent architecture
-- 🔧 Extensible capability system
-- 🚀 Easy to implement new features
-- 📝 Clear documentation
 
-## Installation
+- **Core Intelligence Engine**: Manages agent configurations and capabilities
+- **Agent Factory**: Creates new AI agents with customizable capabilities
+- **Agent Manager**: Handles agent lifecycle and execution
+- **Template System**: Generates agent code and configuration files
+- **Testing Framework**: Comprehensive unit tests for core functionality
+
+## Getting Started
+
+### Prerequisites
+- Python 3.8+
+- pip
+
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/tony-42069/ai-staff-dev-agent.git
+   cd ai-staff-dev-agent
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### Running Tests
+To verify the installation and functionality:
 ```bash
-# Clone the repository
-git clone [your-repo-url]
+python -m unittest test_dev_agent.py -v
+```
 
-# Create virtual environment
-python -m venv venv
+## Project Structure
 
-# Activate virtual environment
-# Windows:
-.\venv\Scripts\activate
-# Linux/Mac:
-source venv/bin/activate
+```
+ai-staff-dev-agent/
+├── src/
+│   └── core/
+│       └── intelligence.py       # Core intelligence implementation
+├── tests/
+│   └── test_dev_agent.py         # Unit tests
+├── requirements.txt              # Python dependencies
+└── README.md                     # This documentation
+```
 
-# Install dependencies
-pip install -r requirements.txt
+## Current Status
+
+✅ Core framework implemented  
+✅ Agent creation and management working  
+✅ Comprehensive test coverage  
+✅ Template system for agent generation  
+
+## Next Steps
+
+- [ ] Complete template system implementation
+- [ ] Add dynamic agent loading
+- [ ] Implement capability inheritance
+- [ ] Set up configuration management
+- [ ] Add deployment and monitoring capabilities
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+1. Fork the repository
+2. Create a new branch for your feature
+3. Commit your changes
+4. Push to the branch
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
