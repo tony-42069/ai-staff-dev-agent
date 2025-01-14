@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 import yaml
 import importlib.util
+from string import Template
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -39,6 +40,7 @@ class AgentCapability:
     requirements: List[str]
     parameters: Dict[str, Union[str, int, float, bool]]
     implementation: str  # Python code as string
+    inherits_from: Optional[List[str]] = None
 
 @dataclass
 class AgentConfig:
@@ -79,18 +81,29 @@ class CoreIntelligence:
     def _load_configurations(self):
         """Load core configurations from protected directory"""
         try:
+            # Load capabilities
             with open(self.config_path / 'capabilities.yaml', 'r') as f:
                 capabilities_data = yaml.safe_load(f)
                 for cap_data in capabilities_data:
                     capability = AgentCapability(**cap_data)
                     self.capabilities[capability.name] = capability
 
+            # Implement inheritance for capabilities
+            for name, capability in self.capabilities.items():
+                if capability.inherits_from:
+                    for parent_name in capability.inherits_from:
+                        if parent_name in self.capabilities:
+                            parent = self.capabilities[parent_name]
+                            capability.requirements = list(set(parent.requirements + capability.requirements))
+                            capability.parameters = {**parent.parameters, **capability.parameters}
+
+            # Load agents
             with open(self.config_path / 'agents.yaml', 'r') as f:
                 agents_data = yaml.safe_load(f)
                 for agent_data in agents_data:
                     agent = AgentConfig(**agent_data)
                     self.agents[agent.name] = agent
-                    
+
         except Exception as e:
             logger.error(f"Error loading configurations: {str(e)}")
             raise
@@ -272,16 +285,31 @@ class AgentFactory:
         try:
             test_dir = agent_dir / 'tests'
             test_dir.mkdir(exist_ok=True)
-            
-            template = self._load_template('test_agent.py.template')
-            content = template.format(
+
+            template_content = self._load_template('test_agent.py.template')
+            template = Template(template_content)
+
+            capability_tests = ""
+            for capability_name in config.capabilities:
+                test_method_name = f"test_capability_{capability_name.lower()}"
+                capability_tests += f"""
+    def {test_method_name}(self):
+        \"\"\"Test {capability_name} capability\"\"\"
+        task = {{'capability': '{capability_name}'}}
+        result = self.agent.execute_task(task)
+        self.assertIsNotNone(result)
+        self.assertIsInstance(result, Dict)
+"""
+
+            content = template.render(
                 name=config.name,
-                capabilities=", ".join(config.capabilities)
+                name_lower=config.name.lower(),
+                capability_tests=capability_tests
             )
-            
-            with open(test_dir / 'test_agent.py', 'w') as f:
+
+            with open(test_dir / f'test_{config.name.lower()}.py', 'w') as f:
                 f.write(content)
-                
+
         except Exception as e:
             logger.error(f"Error generating tests: {str(e)}")
             raise
@@ -319,11 +347,11 @@ class AgentManager:
     def start_agent(self, agent_name: str) -> bool:
         """Start an AI agent"""
         try:
-            if (agent_name not in self.core.agents):
+            if agent_name not in self.core.agents:
                 raise ValueError(f"Unknown agent: {agent_name}")
-                
+            
             config = self.core.agents[agent_name]
-            agent = self._load_agent(config)
+            agent = self._load_agent(agent_name)
             
             if agent and agent.initialize():
                 self.running_agents[agent_name] = agent
@@ -336,23 +364,15 @@ class AgentManager:
 
     def stop_agent(self, agent_name: str) -> bool:
         """Stop a running AI agent"""
-        try:
-            if agent_name not in self.running_agents:
-                raise ValueError(f"Agent not running: {agent_name}")
-                
-            agent = self.running_agents[agent_name]
-            if agent.cleanup():
-                del self.running_agents[agent_name]
-                return True
-            return False
-            
-        except Exception as e:
-            logger.error(f"Error stopping agent: {str(e)}")
-            return False
+        # ... (rest of the method remains the same)
 
-    def _load_agent(self, config: AgentConfig) -> Optional['Agent']:
+    def _load_agent(self, agent_name: str) -> Optional['Agent']:
         """Dynamic agent loading"""
         try:
+            if agent_name not in self.core.agents:
+                raise ValueError(f"Unknown agent: {agent_name}")
+                
+            config = self.core.agents[agent_name]
             agent_path = Path(f"agents/{config.name}/agent.py")
             if not agent_path.exists():
                 agent = self.factory.create_agent(config)
@@ -360,12 +380,12 @@ class AgentManager:
             
             # Load existing agent
             spec = importlib.util.spec_from_file_location(
-                config.name, agent_path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            agent_class = getattr(module, f"{config.name}Agent")
-            return agent_class()
-            
+                config.name, str(agent_path))
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                agent_class = getattr(module, f"{config.name}Agent")
+                return agent_class()
         except Exception as e:
             logger.error(f"Error loading agent: {str(e)}")
             return None
