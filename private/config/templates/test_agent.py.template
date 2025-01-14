@@ -1,0 +1,107 @@
+# Template for private/config/templates/test_agent.py.template
+
+"""
+Tests for {name} Agent
+
+This test suite is automatically generated based on the agent's configuration
+and its capabilities. It includes tests for capability initialization,
+parameter validation, requirement verification, and inheritance relationships.
+"""
+
+import unittest
+from typing import Dict, Any, List
+from unittest.mock import patch, MagicMock
+from agents.{name_lower}.agent import {name}Agent
+from core.exceptions import CapabilityError, ConfigurationError
+
+class Test{name}Agent(unittest.TestCase):
+    """Test cases for {name} Agent"""
+    
+    def setUp(self):
+        """Set up test cases"""
+        self.agent = {name}Agent()
+        self.initialized = self.agent.initialize()
+        
+    def tearDown(self):
+        """Clean up after tests"""
+        if self.initialized:
+            self.agent.cleanup()
+            
+    def test_initialization(self):
+        """Test agent initialization"""
+        self.assertTrue(self.initialized)
+        self.assertIsNotNone(self.agent.capabilities)
+        self.assertIsNotNone(self.agent.config)
+        
+    def test_capability_loading(self):
+        """Test that all required capabilities are loaded"""
+        expected_capabilities = {expected_capabilities}
+        for capability in expected_capabilities:
+            self.assertIn(capability, self.agent.capabilities)
+            self.assertTrue(self.agent.has_capability(capability))
+            
+    def test_capability_requirements(self):
+        """Test that all capability requirements are met"""
+        for name, capability in self.agent.capabilities.items():
+            self.assertIsNotNone(capability.requirements)
+            for requirement in capability._resolved_requirements:
+                with self.subTest(capability=name, requirement=requirement):
+                    self.assertTrue(
+                        self.agent.check_requirement(requirement),
+                        f"Requirement '{requirement}' not met for capability '{name}'"
+                    )
+                    
+    def test_capability_parameters(self):
+        """Test that all capability parameters are properly configured"""
+        for name, capability in self.agent.capabilities.items():
+            self.assertIsNotNone(capability.parameters)
+            self.assertIsNotNone(capability._resolved_parameters)
+            with self.subTest(capability=name):
+                self.assertDictEqual(
+                    capability._resolved_parameters,
+                    self.agent.get_capability_parameters(name)
+                )
+                
+    def test_capability_inheritance(self):
+        """Test capability inheritance relationships"""
+        inheritance_map = {inheritance_map}
+        for capability_name, parent_name in inheritance_map.items():
+            with self.subTest(capability=capability_name):
+                capability = self.agent.capabilities[capability_name]
+                if parent_name:
+                    self.assertEqual(capability.parent, parent_name)
+                    parent = self.agent.capabilities[parent_name]
+                    # Verify parameter inheritance
+                    for key, value in parent._resolved_parameters.items():
+                        self.assertIn(key, capability._resolved_parameters)
+                    # Verify requirement inheritance
+                    for req in parent._resolved_requirements:
+                        self.assertIn(req, capability._resolved_requirements)
+                        
+    def test_capability_execution(self):
+        """Test execution of each capability"""
+        test_tasks = {test_tasks}
+        for capability_name, tasks in test_tasks.items():
+            capability = self.agent.capabilities[capability_name]
+            for task in tasks:
+                with self.subTest(capability=capability_name, task=task):
+                    result = capability.execute(task)
+                    self.assertEqual(result['status'], 'success')
+                    
+    def test_error_handling(self):
+        """Test error handling in capabilities"""
+        error_test_cases = {error_test_cases}
+        for capability_name, test_cases in error_test_cases.items():
+            capability = self.agent.capabilities[capability_name]
+            for test_case in test_cases:
+                with self.subTest(capability=capability_name, case=test_case['name']):
+                    with patch.object(capability, test_case['method']) as mock_method:
+                        mock_method.side_effect = Exception(test_case['error_msg'])
+                        result = capability.execute(test_case['task'])
+                        self.assertEqual(result['status'], 'error')
+                        self.assertIn(test_case['error_msg'], result['message'])
+                        
+    {capability_tests}
+    
+if __name__ == '__main__':
+    unittest.main()
