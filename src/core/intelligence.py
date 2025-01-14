@@ -95,7 +95,7 @@ class CoreIntelligence:
             logger.error(f"Error loading configurations: {str(e)}")
             raise
 
-def _initialize_core_capabilities(self):
+    def _initialize_core_capabilities(self):
         """Initialize core development capabilities"""
         self.capabilities['project_generation'] = Capability(
             name='project_generation',
@@ -173,10 +173,7 @@ def _initialize_core_capabilities(self):
             }
         except Exception as e:
             logger.error(f"Error in development task: {str(e)}")
-            return {'status': 'error', 'message': str(e)}    
-        
-        # Project generation logic here
-        return {'status': 'success', 'path': f'projects/{name}'}
+            return {'status': 'error', 'message': str(e)}
 
 class AgentFactory:
     """Factory for creating new AI agents"""
@@ -187,9 +184,10 @@ class AgentFactory:
     def create_agent(self, config: AgentConfig) -> Agent:
         """Simplified agent creation"""
         class DynamicAgent(Agent):
-            def __init__(self):
+            def __init__(self, core):
                 self.name = config.name
                 self.version = config.version
+                self.core = core
                 self.capabilities = {
                     cap: self.core.capabilities[cap] 
                     for cap in config.capabilities
@@ -209,7 +207,7 @@ class AgentFactory:
                     raise ValueError(f"Unknown capability: {capability}")
                 return self.capabilities[capability].execute(task)
 
-        return DynamicAgent()
+        return DynamicAgent(self.core)
 
     def _generate_agent_files(self, agent_dir: Path, config: AgentConfig):
         """Generate necessary files for the agent"""
@@ -225,26 +223,26 @@ class AgentFactory:
         # Generate configuration
         self._generate_config(agent_dir, config)
 
-def _generate_main_class(self, agent_dir: Path, config: AgentConfig):
-    """Generate the main agent class file"""
-    try:
-        template = self._load_template('agent_class.py.template')
-        logger.info(f"Formatting template for agent: {config.name}")
-        
-        # Use a dictionary for string formatting
-        format_dict = {
-            'name': config.name,
-            'version': config.version
-        }
-        
-        content = template.safe_substitute(format_dict) if hasattr(template, 'safe_substitute') else template.format(**format_dict)
-        
-        with open(agent_dir / 'agent.py', 'w') as f:
-            f.write(content)
-                
-    except Exception as e:
-        logger.error(f"Error generating main class: {str(e)}")
-        raise
+    def _generate_main_class(self, agent_dir: Path, config: AgentConfig):
+        """Generate the main agent class file"""
+        try:
+            template = self._load_template('agent_class.py.template')
+            logger.info(f"Formatting template for agent: {config.name}")
+            
+            # Use a dictionary for string formatting
+            format_dict = {
+                'name': config.name,
+                'version': config.version
+            }
+            
+            content = template.safe_substitute(format_dict) if hasattr(template, 'safe_substitute') else template.format(**format_dict)
+            
+            with open(agent_dir / 'agent.py', 'w') as f:
+                f.write(content)
+                    
+        except Exception as e:
+            logger.error(f"Error generating main class: {str(e)}")
+            raise
 
     def _generate_capabilities(self, agent_dir: Path, config: AgentConfig):
         """Generate capability implementations"""
@@ -315,6 +313,7 @@ class AgentManager:
     
     def __init__(self, core_intelligence: CoreIntelligence):
         self.core = core_intelligence
+        self.factory = AgentFactory(core_intelligence)
         self.running_agents: Dict[str, 'Agent'] = {}
 
     def start_agent(self, agent_name: str) -> bool:
