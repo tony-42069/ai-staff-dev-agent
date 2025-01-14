@@ -1,8 +1,5 @@
 # 🚀 AI Staff Development Agent 🤖
 
-![Banner](https://via.placeholder.com/1200x400.png?text=AI+Staff+Development+Agent+Banner)
-
-
 A sophisticated framework for creating and managing AI development agents. This project provides core intelligence capabilities for agent creation, project generation, code generation, and development task management.
 
 ## ✨ Features
