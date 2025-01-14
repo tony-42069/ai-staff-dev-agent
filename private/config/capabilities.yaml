@@ -1,0 +1,160 @@
+# private/config/capabilities.yaml
+
+# Base capabilities that others can inherit from
+- name: base_development
+  description: "Base capability for development operations"
+  requirements:
+    - "pydantic"
+    - "PyYAML"
+  parameters:
+    templates_path: "private/templates"
+    git_initialization: true
+    logging_level: "INFO"
+  implementation: |
+    try:
+        # Base development operations
+        self._setup_logging()
+        self._initialize_environment()
+        return {"status": "success", "message": "Base development operations completed"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+- name: base_code_operations
+  description: "Base capability for code operations"
+  requirements:
+    - "black"
+  parameters:
+    code_style: "pep8"
+    documentation_style: "google"
+  implementation: |
+    try:
+        # Base code operations
+        self._setup_code_environment()
+        return {"status": "success", "message": "Base code operations completed"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# Derived capabilities that inherit from base capabilities
+- name: project_generation
+  description: "Creates new project structures and configurations"
+  parent: base_development
+  requirements:
+    - "cookiecutter"
+    - "GitPython"
+  parameters:
+    supported_frameworks: ["fastapi", "flask", "django"]
+  implementation: |
+    try:
+        project_type = task.get('project_type')
+        project_name = task.get('project_name')
+        
+        # Generate project structure
+        structure = self._generate_project_structure(project_type)
+        
+        # Set up configurations
+        configs = self._setup_project_configs(project_name, project_type)
+        
+        # Initialize git if requested
+        if self.parameters['git_initialization']:
+            self._initialize_git_repo()
+        
+        return {
+            'status': 'success',
+            'project_path': structure['path'],
+            'configs': configs
+        }
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}
+
+- name: agent_creation
+  description: "Creates new AI agents with specified capabilities"
+  parent: base_development
+  requirements:
+    - "jinja2"
+  parameters:
+    agent_templates: "private/templates/agents"
+    capability_templates: "private/templates/capabilities"
+  implementation: |
+    try:
+        agent_type = task.get('agent_type')
+        capabilities = task.get('capabilities', [])
+        
+        # Generate agent structure
+        agent_structure = self._generate_agent_structure(agent_type)
+        
+        # Implement capabilities
+        implemented_capabilities = self._implement_capabilities(capabilities)
+        
+        # Generate tests
+        tests = self._generate_agent_tests(agent_type, capabilities)
+        
+        return {
+            'status': 'success',
+            'agent_path': agent_structure['path'],
+            'capabilities': implemented_capabilities,
+            'tests': tests
+        }
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}
+
+- name: code_generation
+  description: "Generates code based on requirements and specifications"
+  parent: base_code_operations
+  requirements:
+    - "autopep8"
+  parameters:
+    testing_framework: "pytest"
+  implementation: |
+    try:
+        code_spec = task.get('specification')
+        language = task.get('language', 'python')
+        
+        # Generate code structure
+        code = self._generate_code(code_spec, language)
+        
+        # Generate tests
+        tests = self._generate_code_tests(code)
+        
+        # Generate documentation
+        docs = self._generate_documentation(code)
+        
+        return {
+            'status': 'success',
+            'code': code,
+            'tests': tests,
+            'documentation': docs
+        }
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}
+
+- name: development_tasks
+  description: "Handles development tasks like testing, deployment, and maintenance"
+  parent: base_development
+  requirements:
+    - "pytest"
+    - "docker"
+  parameters:
+    test_coverage_threshold: 80
+    deployment_environments: ["development", "staging", "production"]
+  implementation: |
+    try:
+        task_type = task.get('task_type')
+        task_params = task.get('parameters', {})
+        
+        # Execute development task
+        if task_type == 'testing':
+            result = self._run_tests(task_params)
+        elif task_type == 'deployment':
+            result = self._handle_deployment(task_params)
+        elif task_type == 'maintenance':
+            result = self._perform_maintenance(task_params)
+        else:
+            raise ValueError(f"Unknown task type: {task_type}")
+        
+        return {
+            'status': 'success',
+            'task_type': task_type,
+            'result': result
+        }
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}
