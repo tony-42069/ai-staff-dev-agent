@@ -111,14 +111,17 @@ class TestGenerator:
                 "method": "execute",
                 "error_msg": "Invalid parameters provided",
                 "task": {"invalid": "task"}
-            },
-            {
+            }
+        ]
+        
+        # Only add requirement test case if capability has requirements
+        if capability.get("requirement") or capability.get("requirements"):
+            cases.append({
                 "name": "missing_requirement",
                 "method": "check_requirement",
                 "error_msg": f"Requirement not met for capability '{capability['name']}'",
                 "task": {"type": "basic"}
-            }
-        ]
+            })
         
         # Add inheritance-specific error cases if capability has a parent
         if capability.get("parent"):
@@ -180,7 +183,7 @@ class TestGenerator:
             return {k: self._generate_test_value(v) for k, v in value.items()}
         return value
 
-def generate_tests(agent_config_path: str, capabilities_config_path: str, output_path: str) -> None:
+def generate_tests(agent_config_path: str, capabilities_config_path: str, output_path: str, agent_name: str) -> None:
     """
     Generate tests for an agent based on configuration files.
 
@@ -191,9 +194,17 @@ def generate_tests(agent_config_path: str, capabilities_config_path: str, output
     """
     # Load configurations
     with open(agent_config_path, "r") as f:
-        agent_config = yaml.safe_load(f)
+        agents_config = yaml.safe_load(f)
     with open(capabilities_config_path, "r") as f:
         capabilities_config = yaml.safe_load(f)
+        
+    # Find the specific agent configuration
+    agent_config = next(
+        (agent for agent in agents_config if agent["name"] == agent_name),
+        None
+    )
+    if agent_config is None:
+        raise ValueError(f"Agent '{agent_name}' not found in configuration")
         
     # Generate tests
     generator = TestGenerator(agent_config, capabilities_config)

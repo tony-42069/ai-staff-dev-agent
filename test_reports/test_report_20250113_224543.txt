@@ -1,0 +1,36 @@
+Test Report - 20250113_224543
+==================================================
+
+Total Tests: 6
+Failures: 0
+Errors: 1
+Run Time: 0.07s
+
+Test Results:
+--------------------------------------------------
+
+Test: test_suite.TestTemplateSystem.test_capability_inheritance
+Status: success
+Time: 0.01s
+
+Test: test_suite.TestTemplateSystem.test_config_backup_restore
+Status: success
+Time: 0.02s
+
+Test: test_suite.TestTemplateSystem.test_config_manager_initialization
+Status: success
+Time: 0.01s
+
+Test: test_suite.TestTemplateSystem.test_config_updates
+Status: success
+Time: 0.02s
+
+Test: test_suite.TestTemplateSystem.test_config_validation
+Status: success
+Time: 0.01s
+
+Test: test_suite.TestTemplateSystem.test_test_generation
+Status: error
+Time: 0.01s
+Error Type: KeyError
+Error Message: 'requirement'

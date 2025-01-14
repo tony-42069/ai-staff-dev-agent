@@ -6,6 +6,9 @@
   name: base_development
   parameters:
     templates_path: private/templates
+  requirement:
+    name: pydantic
+    type: package
   requirements:
   - pydantic
   - PyYAML
@@ -17,6 +20,9 @@
   parameters:
     code_style: pep8
     documentation_style: google
+  requirement:
+    name: black
+    type: package
   requirements:
   - black
 - description: Creates new project structures and configurations
@@ -35,6 +41,9 @@
     - flask
     - django
   parent: base_development
+  requirement:
+    name: cookiecutter
+    type: package
   requirements:
   - cookiecutter
   - GitPython
@@ -68,6 +77,9 @@
   parameters:
     testing_framework: pytest
   parent: base_code_operations
+  requirement:
+    name: autopep8
+    type: package
   requirements:
   - autopep8
 - description: Handles development tasks like testing, deployment, and maintenance

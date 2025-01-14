@@ -229,13 +229,30 @@ python private/config/templates/manage_improvements.py report
 
 ## 🎯 Next Actions
 
-1. Deploy the system using docker-compose
-2. Configure initial agent capabilities
-3. Run comprehensive tests
-4. Monitor system performance
-5. Begin implementing improvements
-6. Expand capability set
-7. Enhance security measures
-8. Scale system resources
+1. Fix Test Generation System
+   - Resolve requirement handling in test generation
+   - Update test templates to properly handle capability requirements
+   - Ensure compatibility between capability configuration and test expectations
+   - Add proper error handling for missing requirements
 
-The foundation is complete - now it's time to bring the agent to life through deployment and active use!
+2. System Improvements
+   - Deploy the system using docker-compose
+   - Configure initial agent capabilities
+   - Run comprehensive tests
+   - Monitor system performance
+   - Begin implementing improvements
+   - Expand capability set
+   - Enhance security measures
+   - Scale system resources
+
+The foundation is in place, but we need to address the test generation system before proceeding with deployment and active use.
+
+## 🐛 Known Issues
+
+1. Test Generation System
+   - Issue: Test generation fails with KeyError: 'requirement'
+   - Root Cause: Mismatch between capability configuration structure and test template expectations
+   - Impact: Unable to generate proper test cases for agents
+   - Next Steps: Create new chat session to focus on fixing test generation system
+
+The foundation is complete - but we need to fix the test generation system before bringing the agent to life!

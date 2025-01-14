@@ -49,7 +49,8 @@ def main():
         generate_tests(
             str(agent_config_path),
             str(capabilities_config_path),
-            str(output_path)
+            str(output_path),
+            args.agent_name
         )
         
         print(f"Successfully generated test file: {output_path}")

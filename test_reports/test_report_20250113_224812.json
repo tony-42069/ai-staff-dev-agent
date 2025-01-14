@@ -1,0 +1,43 @@
+{
+  "timestamp": "20250113_224812",
+  "total_tests": 6,
+  "failures": 0,
+  "errors": 1,
+  "run_time": 0.07824230194091797,
+  "test_results": [
+    {
+      "name": "test_suite.TestTemplateSystem.test_capability_inheritance",
+      "status": "success",
+      "time": 0.01856517791748047
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_backup_restore",
+      "status": "success",
+      "time": 0.016927003860473633
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_manager_initialization",
+      "status": "success",
+      "time": 0.007556915283203125
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_updates",
+      "status": "success",
+      "time": 0.016978979110717773
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_validation",
+      "status": "success",
+      "time": 0.007565975189208984
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_test_generation",
+      "status": "error",
+      "time": 0.00788426399230957,
+      "error": {
+        "type": "KeyError",
+        "message": "'requirement'"
+      }
+    }
+  ]
+}
