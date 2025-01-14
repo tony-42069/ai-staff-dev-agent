@@ -118,10 +118,15 @@ class TestGenerator:
         requirements = capability.get("requirements", [])
         if requirements:
             for req in requirements:
+                if isinstance(req, dict):
+                    req_name = req.get('name', str(req))
+                else:
+                    req_name = str(req)
+                    
                 cases.append({
-                    "name": f"missing_{req['name']}_requirement",
+                    "name": f"missing_{req_name}_requirement",
                     "method": "check_requirement",
-                    "error_msg": f"Requirement '{req['name']}' not met for capability '{capability['name']}'",
+                    "error_msg": f"Requirement '{req_name}' not met for capability '{capability['name']}'",
                     "task": {"type": "basic"}
                 })
         
@@ -161,10 +166,15 @@ class TestGenerator:
         # Add requirement assertions
         req_assertions = []
         for req in capability.get("requirements", []):
+            if isinstance(req, dict):
+                req_name = req.get('name', str(req))
+            else:
+                req_name = str(req)
+                
             req_assertion = (
                 f"        self.assertTrue(\n"
-                f"            self.agent.check_requirement('{req['name']}'),\n"
-                f"            f\"Requirement '{req['name']}' not met\"\n"
+                f"            self.agent.check_requirement('{req_name}'),\n"
+                f"            f\"Requirement '{req_name}' not met\"\n"
                 f"        )"
             )
             req_assertions.append(req_assertion)
