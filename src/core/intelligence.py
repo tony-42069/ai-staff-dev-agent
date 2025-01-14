@@ -95,24 +95,85 @@ class CoreIntelligence:
             logger.error(f"Error loading configurations: {str(e)}")
             raise
 
-    def _initialize_core_capabilities(self):
+def _initialize_core_capabilities(self):
         """Initialize core development capabilities"""
         self.capabilities['project_generation'] = Capability(
             name='project_generation',
             description='Creates new project structures',
             handler=self._handle_project_generation
         )
-        
+    
         self.capabilities['code_generation'] = Capability(
             name='code_generation', 
             description='Generates code and tests',
             handler=self._handle_code_generation
         )
 
+        self.capabilities['agent_creation'] = Capability(
+            name='agent_creation',
+            description='Creates new AI agents',
+            handler=self._handle_agent_creation
+        )
+
+        self.capabilities['development_tasks'] = Capability(
+            name='development_tasks',
+            description='Handles development tasks',
+            handler=self._handle_development_tasks
+        )
+
     def _handle_project_generation(self, task: Dict) -> Dict:
         """Handle project generation requests"""
         project_type = task.get('type')
         name = task.get('name')
+        return {'status': 'success', 'path': f'projects/{name}'}
+
+    def _handle_code_generation(self, task: Dict) -> Dict:
+        """Handle code generation requests"""
+        try:
+            language = task.get('language', 'python')
+            code_spec = task.get('specification')
+
+            # Basic code generation logic
+            return {
+                'status': 'success',
+                'code': f'# Generated {language} code\n# Based on specification',
+                'language': language
+            }
+        except Exception as e:
+            logger.error(f"Error in code generation: {str(e)}")
+            return {'status': 'error', 'message': str(e)}
+
+    def _handle_agent_creation(self, task: Dict) -> Dict:
+        """Handle agent creation requests"""
+        try:
+            agent_type = task.get('agent_type')
+            capabilities = task.get('capabilities', [])
+
+            # Basic agent creation logic
+            return {
+                'status': 'success',
+                'agent_type': agent_type,
+                'capabilities': capabilities
+            }
+        except Exception as e:
+            logger.error(f"Error in agent creation: {str(e)}")
+            return {'status': 'error', 'message': str(e)}
+
+    def _handle_development_tasks(self, task: Dict) -> Dict:
+        """Handle development tasks"""
+        try:
+            task_type = task.get('task_type')
+            parameters = task.get('parameters', {})
+
+            # Basic development task handling
+            return {
+                'status': 'success',
+                'task_type': task_type,
+                'result': 'Task completed'
+            }
+        except Exception as e:
+            logger.error(f"Error in development task: {str(e)}")
+            return {'status': 'error', 'message': str(e)}    
         
         # Project generation logic here
         return {'status': 'success', 'path': f'projects/{name}'}
