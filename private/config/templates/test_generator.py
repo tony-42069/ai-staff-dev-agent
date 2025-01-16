@@ -10,6 +10,7 @@ from typing import Dict, Any, List
 import yaml
 import json
 from pathlib import Path
+from private.config.templates.capability import RequirementModel
 
 class TestGenerator:
     def __init__(self, agent_config: Dict[str, Any], capabilities_config: List[Dict[str, Any]]):
@@ -118,15 +119,16 @@ class TestGenerator:
         requirements = capability.get("requirements", [])
         if requirements:
             for req in requirements:
+                # Convert requirement to RequirementModel if needed
                 if isinstance(req, dict):
-                    req_name = req.get('name', str(req))
+                    requirement = RequirementModel(**req)
                 else:
-                    req_name = str(req)
+                    requirement = RequirementModel(name=str(req), type='unknown')
                     
                 cases.append({
-                    "name": f"missing_{req_name}_requirement",
+                    "name": f"missing_{requirement.name}_requirement",
                     "method": "check_requirement",
-                    "error_msg": f"Requirement '{req_name}' not met for capability '{capability['name']}'",
+                    "error_msg": f"Requirement '{requirement.name}' not met for capability '{capability['name']}'",
                     "task": {"type": "basic"}
                 })
         
@@ -166,15 +168,16 @@ class TestGenerator:
         # Add requirement assertions
         req_assertions = []
         for req in capability.get("requirements", []):
+            # Convert requirement to RequirementModel if needed
             if isinstance(req, dict):
-                req_name = req.get('name', str(req))
+                requirement = RequirementModel(**req)
             else:
-                req_name = str(req)
+                requirement = RequirementModel(name=str(req), type='unknown')
                 
             req_assertion = (
                 f"        self.assertTrue(\n"
-                f"            self.agent.check_requirement('{req_name}'),\n"
-                f"            f\"Requirement '{req_name}' not met\"\n"
+                f"            self.agent.check_requirement('{requirement.name}'),\n"
+                f"            f\"Requirement '{requirement.name}' not met\"\n"
                 f"        )"
             )
             req_assertions.append(req_assertion)

@@ -2,19 +2,33 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 import logging
 
+class RequirementModel(BaseModel):
+    name: str
+    type: str
+
 class Capability(BaseModel):
     name: str
     description: str
-    requirements: List[str]
+    requirements: List[RequirementModel]
     parameters: Dict[str, Any]
     parent: Optional[str] = None
-    _resolved_requirements: List[str] = []
+    _resolved_requirements: List[RequirementModel] = []
     _resolved_parameters: Dict[str, Any] = {}
 
     def __init__(self, **data):
+        # Convert requirement dictionaries to RequirementModel instances
+        if 'requirements' in data and isinstance(data['requirements'], list):
+            data['requirements'] = [
+                RequirementModel(**req) if isinstance(req, dict) else RequirementModel(name=str(req), type='unknown')
+                for req in data['requirements']
+            ]
         super().__init__(**data)
         self._resolved_requirements = self.requirements.copy()
         self._resolved_parameters = self.parameters.copy()
+
+    def get_requirement_names(self) -> List[str]:
+        """Get list of requirement names"""
+        return [req.name for req in self.requirements]
 
     def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -80,7 +94,19 @@ class CapabilityManager:
                 
                 parent = self.capabilities[parent_name]
                 # Merge requirements and parameters from parent
-                config['requirements'] = list(set(parent._resolved_requirements + config.get('requirements', [])))
+                parent_reqs = parent._resolved_requirements
+                child_reqs = [
+                    RequirementModel(**req) if isinstance(req, dict) else RequirementModel(name=str(req), type='unknown')
+                    for req in config.get('requirements', [])
+                ]
+                # Merge using requirement names to avoid duplicates
+                merged_req_names = set()
+                merged_reqs = []
+                for req in parent_reqs + child_reqs:
+                    if req.name not in merged_req_names:
+                        merged_reqs.append(req)
+                        merged_req_names.add(req.name)
+                config['requirements'] = merged_reqs
                 merged_params = parent._resolved_parameters.copy()
                 merged_params.update(config.get('parameters', {}))
                 config['parameters'] = merged_params

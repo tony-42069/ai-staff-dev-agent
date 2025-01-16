@@ -51,6 +51,13 @@ class {name}Agent(Agent):
             logging.error(f"Error cleaning up {self.name}: {str(e)}")
             return False
             
+    def check_requirement(self, requirement: str) -> bool:
+        """Check if a requirement is met by any capability"""
+        for capability in self.capabilities.values():
+            if any(req.name == requirement for req in capability.requirements):
+                return True
+        return False
+
     def execute_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a task using appropriate capability"""
         try:
@@ -60,6 +67,14 @@ class {name}Agent(Agent):
                     'status': 'error',
                     'message': f"Capability {capability} not available"
                 }
+                
+            # Verify requirements are met
+            for req in self.capabilities[capability].requirements:
+                if not self.check_requirement(req.name):
+                    return {
+                        'status': 'error',
+                        'message': f"Requirement {req.name} not met for capability {capability}"
+                    }
                 
             # Execute capability with task parameters
             result = self.capabilities[capability].execute(task)

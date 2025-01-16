@@ -45,10 +45,10 @@ class Test{name}Agent(unittest.TestCase):
         for name, capability in self.agent.capabilities.items():
             self.assertIsNotNone(capability.requirements)
             for requirement in capability.requirements:
-                with self.subTest(capability=name, requirement=requirement):
+                with self.subTest(capability=name, requirement=requirement.name):
                     self.assertTrue(
-                        self.agent.check_requirement(requirement['name']),
-                        f"Requirement '{requirement['name']}' not met for capability '{name}'"
+                        self.agent.check_requirement(requirement.name),
+                        f"Requirement '{requirement.name}' not met for capability '{name}'"
                     )
                     
     def test_capability_parameters(self):
@@ -75,14 +75,14 @@ class Test{name}Agent(unittest.TestCase):
                     for key, value in parent._resolved_parameters.items():
                         self.assertIn(key, capability._resolved_parameters)
                     # Verify requirement inheritance
-                    for parent_req in parent.requirements:
-                        inherited = any(
-                            req['name'] == parent_req['name']
-                            for req in capability.requirements
-                        )
+                        for parent_req in parent.requirements:
+                            inherited = any(
+                                req.name == parent_req.name
+                                for req in capability.requirements
+                            )
                         self.assertTrue(
                             inherited,
-                            f"Inherited requirement '{parent_req['name']}' not found in '{capability_name}'"
+                            f"Inherited requirement '{parent_req.name}' not found in '{capability_name}'"
                         )
                         
     def test_capability_execution(self):
