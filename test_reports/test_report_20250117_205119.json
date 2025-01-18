@@ -1,0 +1,63 @@
+{
+  "timestamp": "20250117_205119",
+  "total_tests": 6,
+  "failures": 0,
+  "errors": 6,
+  "run_time": 0.015298843383789062,
+  "test_results": [
+    {
+      "name": "test_suite.TestTemplateSystem.test_capability_inheritance",
+      "status": "error",
+      "time": 0.0018677711486816406,
+      "error": {
+        "type": "NameError",
+        "message": "name 'false' is not defined"
+      }
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_backup_restore",
+      "status": "error",
+      "time": 0.0005135536193847656,
+      "error": {
+        "type": "NameError",
+        "message": "name 'false' is not defined"
+      }
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_manager_initialization",
+      "status": "error",
+      "time": 0.0005807876586914062,
+      "error": {
+        "type": "NameError",
+        "message": "name 'false' is not defined"
+      }
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_updates",
+      "status": "error",
+      "time": 0.000446319580078125,
+      "error": {
+        "type": "NameError",
+        "message": "name 'false' is not defined"
+      }
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_validation",
+      "status": "error",
+      "time": 0.0007812976837158203,
+      "error": {
+        "type": "NameError",
+        "message": "name 'false' is not defined"
+      }
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_test_generation",
+      "status": "error",
+      "time": 0.0009217262268066406,
+      "error": {
+        "type": "NameError",
+        "message": "name 'false' is not defined"
+      }
+    }
+  ]
+}

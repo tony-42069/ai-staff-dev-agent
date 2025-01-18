@@ -115,22 +115,19 @@ class TestGenerator:
             }
         ]
         
-        # Handle requirements
+        # Handle requirements - now always in dictionary format
         requirements = capability.get("requirements", [])
-        if requirements:
-            for req in requirements:
-                # Convert requirement to RequirementModel if needed
-                if isinstance(req, dict):
-                    requirement = RequirementModel(**req)
-                else:
-                    requirement = RequirementModel(name=str(req), type='unknown')
-                    
-                cases.append({
-                    "name": f"missing_{requirement.name}_requirement",
-                    "method": "check_requirement",
-                    "error_msg": f"Requirement '{requirement.name}' not met for capability '{capability['name']}'",
-                    "task": {"type": "basic"}
-                })
+        for req in requirements:
+            # Validate requirement format
+            if not isinstance(req, dict) or "name" not in req or "type" not in req:
+                raise ValueError(f"Invalid requirement format in capability '{capability['name']}': {req}")
+            
+            cases.append({
+                "name": f"missing_{req['name']}_requirement",
+                "method": "check_requirement",
+                "error_msg": f"Requirement '{req['name']}' (type: {req['type']}) not met for capability '{capability['name']}'",
+                "task": {"type": "basic"}
+            })
         
         # Add inheritance-specific error cases if capability has a parent
         if capability.get("parent"):
@@ -165,19 +162,17 @@ class TestGenerator:
             
         param_assertions_str = "\n".join(param_assertions)
         
-        # Add requirement assertions
+        # Add requirement assertions - now using structured requirement format
         req_assertions = []
         for req in capability.get("requirements", []):
-            # Convert requirement to RequirementModel if needed
-            if isinstance(req, dict):
-                requirement = RequirementModel(**req)
-            else:
-                requirement = RequirementModel(name=str(req), type='unknown')
-                
+            # Validate requirement format
+            if not isinstance(req, dict) or "name" not in req or "type" not in req:
+                raise ValueError(f"Invalid requirement format in capability '{capability['name']}': {req}")
+            
             req_assertion = (
                 f"        self.assertTrue(\n"
-                f"            self.agent.check_requirement('{requirement.name}'),\n"
-                f"            f\"Requirement '{requirement.name}' not met\"\n"
+                f"            self.agent.check_requirement('{req['name']}', '{req['type']}'),\n"
+                f"            f\"Requirement '{req['name']}' (type: {req['type']}) not met\"\n"
                 f"        )"
             )
             req_assertions.append(req_assertion)
@@ -227,7 +222,17 @@ def generate_tests(agent_config_path: str, capabilities_config_path: str, output
     with open(agent_config_path, "r") as f:
         agents_config = yaml.safe_load(f)
     with open(capabilities_config_path, "r") as f:
-        capabilities_config = yaml.safe_load(f)
+        raw_capabilities = yaml.safe_load(f)
+        
+    # Convert requirements to RequirementModel instances
+    capabilities_config = []
+    for cap in raw_capabilities:
+        if "requirements" in cap:
+            cap["requirements"] = [
+                RequirementModel(**req) if isinstance(req, dict) else RequirementModel(name=str(req), type="unknown")
+                for req in cap["requirements"]
+            ]
+        capabilities_config.append(cap)
         
     # Find the specific agent configuration
     agent_config = next(

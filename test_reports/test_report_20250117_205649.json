@@ -1,0 +1,47 @@
+{
+  "timestamp": "20250117_205649",
+  "total_tests": 6,
+  "failures": 0,
+  "errors": 2,
+  "run_time": 0.09904217720031738,
+  "test_results": [
+    {
+      "name": "test_suite.TestTemplateSystem.test_capability_inheritance",
+      "status": "success",
+      "time": 0.024944543838500977
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_backup_restore",
+      "status": "success",
+      "time": 0.01928257942199707
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_manager_initialization",
+      "status": "success",
+      "time": 0.011541604995727539
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_updates",
+      "status": "error",
+      "time": 0.015207052230834961,
+      "error": {
+        "type": "ValueError",
+        "message": "Capability not found: base_capability"
+      }
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_validation",
+      "status": "success",
+      "time": 0.009483575820922852
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_test_generation",
+      "status": "error",
+      "time": 0.011727094650268555,
+      "error": {
+        "type": "KeyError",
+        "message": "'req_name'"
+      }
+    }
+  ]
+}

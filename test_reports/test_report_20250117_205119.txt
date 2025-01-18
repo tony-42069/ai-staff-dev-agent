@@ -1,0 +1,46 @@
+Test Report - 20250117_205119
+==================================================
+
+Total Tests: 6
+Failures: 0
+Errors: 6
+Run Time: 0.02s
+
+Test Results:
+--------------------------------------------------
+
+Test: test_suite.TestTemplateSystem.test_capability_inheritance
+Status: error
+Time: 0.00s
+Error Type: NameError
+Error Message: name 'false' is not defined
+
+Test: test_suite.TestTemplateSystem.test_config_backup_restore
+Status: error
+Time: 0.00s
+Error Type: NameError
+Error Message: name 'false' is not defined
+
+Test: test_suite.TestTemplateSystem.test_config_manager_initialization
+Status: error
+Time: 0.00s
+Error Type: NameError
+Error Message: name 'false' is not defined
+
+Test: test_suite.TestTemplateSystem.test_config_updates
+Status: error
+Time: 0.00s
+Error Type: NameError
+Error Message: name 'false' is not defined
+
+Test: test_suite.TestTemplateSystem.test_config_validation
+Status: error
+Time: 0.00s
+Error Type: NameError
+Error Message: name 'false' is not defined
+
+Test: test_suite.TestTemplateSystem.test_test_generation
+Status: error
+Time: 0.00s
+Error Type: NameError
+Error Message: name 'false' is not defined

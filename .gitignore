@@ -37,9 +37,6 @@ ENV/
 # Local development
 .DS_Store
 
-# Add these specific protections to your existing .gitignore file
-@"
-
 # Core IP Protection
 src/agents/core_logic.py
 src/agents/intelligence_engine.py
@@ -47,6 +44,7 @@ src/core/agent_config.py
 src/core/intelligence/*
 src/core/strategies/*
 private/*
+!private/config/
 *.secret.*
 **/internal_config/*
 
@@ -54,6 +52,6 @@ private/*
 config.private.py
 agent_params.py
 decision_matrix.py
-"@ | Add-Content -Path ".gitignore"cline_docs/
 
+cline_docs/
 cline_docs

@@ -1,0 +1,64 @@
+Test Report - 20250117_205321
+==================================================
+
+Total Tests: 6
+Failures: 0
+Errors: 6
+Run Time: 0.10s
+
+Test Results:
+--------------------------------------------------
+
+Test: test_suite.TestTemplateSystem.test_capability_inheritance
+Status: error
+Time: 0.03s
+Error Type: ValidationError
+Error Message: 1 validation error for CapabilityConfig
+requirements.0
+  Input should be a valid string [type=string_type, input_value={'name': 'base_req', 'opt...alse, 'type': 'package'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.10/v/string_type
+
+Test: test_suite.TestTemplateSystem.test_config_backup_restore
+Status: error
+Time: 0.02s
+Error Type: ValidationError
+Error Message: 1 validation error for CapabilityConfig
+requirements.0
+  Input should be a valid string [type=string_type, input_value={'name': 'base_req', 'opt...alse, 'type': 'package'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.10/v/string_type
+
+Test: test_suite.TestTemplateSystem.test_config_manager_initialization
+Status: error
+Time: 0.01s
+Error Type: ValidationError
+Error Message: 1 validation error for CapabilityConfig
+requirements.0
+  Input should be a valid string [type=string_type, input_value={'name': 'base_req', 'opt...alse, 'type': 'package'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.10/v/string_type
+
+Test: test_suite.TestTemplateSystem.test_config_updates
+Status: error
+Time: 0.01s
+Error Type: ValidationError
+Error Message: 1 validation error for CapabilityConfig
+requirements.0
+  Input should be a valid string [type=string_type, input_value={'name': 'base_req', 'opt...alse, 'type': 'package'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.10/v/string_type
+
+Test: test_suite.TestTemplateSystem.test_config_validation
+Status: error
+Time: 0.01s
+Error Type: ValidationError
+Error Message: 1 validation error for CapabilityConfig
+requirements.0
+  Input should be a valid string [type=string_type, input_value={'name': 'base_req', 'opt...alse, 'type': 'package'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.10/v/string_type
+
+Test: test_suite.TestTemplateSystem.test_test_generation
+Status: error
+Time: 0.01s
+Error Type: ValidationError
+Error Message: 1 validation error for CapabilityConfig
+requirements.0
+  Input should be a valid string [type=string_type, input_value={'name': 'base_req', 'opt...alse, 'type': 'package'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.10/v/string_type

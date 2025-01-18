@@ -1,0 +1,43 @@
+{
+  "timestamp": "20250117_205026",
+  "total_tests": 6,
+  "failures": 0,
+  "errors": 1,
+  "run_time": 0.09609651565551758,
+  "test_results": [
+    {
+      "name": "test_suite.TestTemplateSystem.test_capability_inheritance",
+      "status": "success",
+      "time": 0.014673709869384766
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_backup_restore",
+      "status": "success",
+      "time": 0.01957082748413086
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_manager_initialization",
+      "status": "success",
+      "time": 0.014687538146972656
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_updates",
+      "status": "success",
+      "time": 0.02106952667236328
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_config_validation",
+      "status": "success",
+      "time": 0.012028932571411133
+    },
+    {
+      "name": "test_suite.TestTemplateSystem.test_test_generation",
+      "status": "error",
+      "time": 0.011012077331542969,
+      "error": {
+        "type": "ValueError",
+        "message": "Invalid requirement format in capability 'base_capability': package:base_req"
+      }
+    }
+  ]
+}

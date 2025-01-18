@@ -41,7 +41,7 @@ class TestTemplateSystem(unittest.TestCase):
         agents_config = [{
             "name": "TestAgent",
             "version": "1.0.0",
-            "capabilities": ["test_capability", "derived_capability"],
+            "capabilities": ["base_development", "code_generation"],
             "parameters": {
                 "test_param": "value"
             },
@@ -54,22 +54,56 @@ class TestTemplateSystem(unittest.TestCase):
         # Create capabilities.yaml
         capabilities_config = [
             {
-                "name": "base_capability",
-                "description": "Base test capability",
-                "requirements": ["base_req"],
+                "name": "base_code_operations",
+                "description": "Base code operations capability",
+                "requirements": [
+                    {
+                        "name": "black",
+                        "type": "package",
+                        "optional": False
+                    }
+                ],
                 "parameters": {
-                    "base_param": "value"
+                    "code_style": "pep8",
+                    "documentation_style": "google"
                 },
                 "implementation": "BaseImplementation",
                 "version": "1.0.0"
             },
             {
-                "name": "derived_capability",
-                "description": "Derived test capability",
-                "parent": "base_capability",
-                "requirements": ["derived_req"],
+                "name": "base_development",
+                "description": "Base development capability",
+                "requirements": [
+                    {
+                        "name": "pydantic",
+                        "type": "package",
+                        "optional": False
+                    },
+                    {
+                        "name": "PyYAML",
+                        "type": "package",
+                        "optional": False
+                    }
+                ],
                 "parameters": {
-                    "derived_param": "value"
+                    "templates_path": "private/templates"
+                },
+                "implementation": "BaseImplementation",
+                "version": "1.0.0"
+            },
+            {
+                "name": "code_generation",
+                "description": "Code generation capability",
+                "parent": "base_code_operations",
+                "requirements": [
+                    {
+                        "name": "autopep8",
+                        "type": "package",
+                        "optional": False
+                    }
+                ],
+                "parameters": {
+                    "testing_framework": "pytest"
                 },
                 "implementation": "DerivedImplementation",
                 "version": "1.0.0"
@@ -159,11 +193,11 @@ class TestTemplateSystem(unittest.TestCase):
             "description": "Updated description",
             "parameters": {"new_param": "value"}
         }
-        self.config_manager.update_capability("base_capability", capability_updates)
+        self.config_manager.update_capability("base_development", capability_updates)
         
         updated_capability = next(
             c for c in self.config_manager.capabilities_config
-            if c["name"] == "base_capability"
+            if c["name"] == "base_development"
         )
         self.assertEqual(updated_capability["description"], "Updated description")
         self.assertEqual(updated_capability["parameters"]["new_param"], "value")

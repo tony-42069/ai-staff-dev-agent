@@ -1,0 +1,18 @@
+# private/config/agents.yaml
+
+- name: "DevAgent"
+  version: "1.0.0"
+  capabilities:
+    - project_generation
+    - agent_creation
+    - code_generation
+    - development_tasks
+  parameters:
+    max_concurrent_projects: 5
+    default_language: "python"
+    test_coverage_requirement: 80
+  security_level: "high"
+  environment:
+    PYTHON_VERSION: "3.9"
+    DEVELOPMENT_MODE: "true"
+    TEMPLATE_PATH: "private/templates"

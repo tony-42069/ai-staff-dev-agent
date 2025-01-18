@@ -47,8 +47,8 @@ class Test{name}Agent(unittest.TestCase):
             for requirement in capability.requirements:
                 with self.subTest(capability=name, requirement=requirement.name):
                     self.assertTrue(
-                        self.agent.check_requirement(requirement.name),
-                        f"Requirement '{requirement.name}' not met for capability '{name}'"
+                        self.agent.check_requirement(requirement.name, requirement.type),
+                        f"Requirement '{requirement.name}' (type: {requirement.type}) not met for capability '{name}'"
                     )
                     
     def test_capability_parameters(self):
@@ -77,13 +77,13 @@ class Test{name}Agent(unittest.TestCase):
                     # Verify requirement inheritance
                         for parent_req in parent.requirements:
                             inherited = any(
-                                req.name == parent_req.name
+                                req.name == parent_req.name and req.type == parent_req.type
                                 for req in capability.requirements
                             )
-                        self.assertTrue(
-                            inherited,
-                            f"Inherited requirement '{parent_req.name}' not found in '{capability_name}'"
-                        )
+                            self.assertTrue(
+                                inherited,
+                                f"Inherited requirement '{parent_req.name}' (type: {parent_req.type}) not found in '{capability_name}'"
+                            )
                         
     def test_capability_execution(self):
         """Test execution of each capability"""

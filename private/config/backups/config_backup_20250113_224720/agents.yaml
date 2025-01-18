@@ -1,0 +1,14 @@
+- capabilities:
+  - project_generation
+  - code_generation
+  environment:
+    DEVELOPMENT_MODE: 'true'
+    PYTHON_VERSION: '3.9'
+    TEMPLATE_PATH: private/templates
+  name: DevAgent
+  parameters:
+    default_language: python
+    max_concurrent_projects: 5
+    test_coverage_requirement: 80
+  security_level: high
+  version: 1.0.0

@@ -6,13 +6,12 @@
   name: base_development
   parameters:
     templates_path: private/templates
+  requirement:
+    name: pydantic
+    type: package
   requirements:
-  - name: pydantic
-    type: package
-    optional: false
-  - name: PyYAML
-    type: package
-    optional: false
+  - pydantic
+  - PyYAML
 - description: Base capability for code operations
   implementation: "try:\n    # Base code operations\n    self._setup_code_environment()\n\
     \    return {\"status\": \"success\", \"message\": \"Base code operations completed\"\
@@ -22,9 +21,7 @@
     code_style: pep8
     documentation_style: google
   requirements:
-  - name: black
-    type: package
-    optional: false
+  - black
 - description: Creates new project structures and configurations
   implementation: "try:\n    project_type = task.get('project_type')\n    project_name\
     \ = task.get('project_name')\n    \n    # Generate project structure\n    structure\
@@ -42,12 +39,8 @@
     - django
   parent: base_development
   requirements:
-  - name: cookiecutter
-    type: package
-    optional: false
-  - name: GitPython
-    type: package
-    optional: false
+  - cookiecutter
+  - GitPython
 - description: Creates new AI agents with specified capabilities
   implementation: "try:\n    agent_type = task.get('agent_type')\n    capabilities\
     \ = task.get('capabilities', [])\n    \n    # Generate agent structure\n    agent_structure\
@@ -64,9 +57,7 @@
     capability_templates: private/templates/capabilities
   parent: base_development
   requirements:
-  - name: jinja2
-    type: package
-    optional: false
+  - jinja2
 - description: Generates code based on requirements and specifications
   implementation: "try:\n    code_spec = task.get('specification')\n    language =\
     \ task.get('language', 'python')\n    \n    # Generate code structure\n    code\
@@ -81,9 +72,7 @@
     testing_framework: pytest
   parent: base_code_operations
   requirements:
-  - name: autopep8
-    type: package
-    optional: false
+  - autopep8
 - description: Handles development tasks like testing, deployment, and maintenance
   implementation: "try:\n    task_type = task.get('task_type')\n    task_params =\
     \ task.get('parameters', {})\n    \n    # Execute development task\n    if task_type\
@@ -103,9 +92,5 @@
     test_coverage_threshold: 80
   parent: base_development
   requirements:
-  - name: pytest
-    type: package
-    optional: false
-  - name: docker
-    type: package
-    optional: false
+  - pytest
+  - docker

@@ -14,12 +14,13 @@ from datetime import datetime
 import shutil
 import logging
 from pydantic import BaseModel, Field, validator
+from private.config.templates.capability import RequirementModel
 
 class CapabilityConfig(BaseModel):
     """Capability configuration model."""
     name: str
     description: str
-    requirements: List[str]
+    requirements: List[RequirementModel]
     parameters: Dict[str, Any]
     parent: Optional[str] = None
     implementation: str
