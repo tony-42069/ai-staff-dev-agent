@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import yaml
 from pydantic import BaseModel
 
@@ -34,7 +34,10 @@ class TestGenerator:
         return standardized
 
     def _generate_error_cases_for_capability(self, capability: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Generate error test cases with proper RequirementModel handling"""
+        """Generate error test cases with debug logging"""
+        print(f"DEBUG: Processing capability: {capability['name']}")
+        print(f"DEBUG: Requirements: {capability.get('requirements', [])}")
+        
         cases = [
             {
                 "name": "invalid_parameters",
@@ -45,16 +48,27 @@ class TestGenerator:
         ]
         
         for req in capability.get("requirements", []):
-            # Safely handle both RequirementModel and dict formats
-            req_name = req.name if isinstance(req, RequirementModel) else req.get("name")
-            req_type = req.type if isinstance(req, RequirementModel) else req.get("type", "package")
-            
-            cases.append({
-                "name": f"missing_{req_name}_requirement",
-                "method": "check_requirement",
-                "error_msg": f"Requirement '{req_name}' (type: {req_type}) not met for capability '{capability['name']}'",
-                "task": {"type": "basic"}
-            })
+            print(f"DEBUG: Processing requirement: {req}")
+            # Handle both dict and RequirementModel formats
+            if hasattr(req, 'dict'):
+                # Handle Pydantic model
+                req_dict = req.dict()
+                req_name = req_dict.get('name')
+                req_type = req_dict.get('type', 'package')
+            elif isinstance(req, dict):
+                req_name = req.get('name')
+                req_type = req.get('type', 'package')
+            else:
+                print(f"DEBUG: Unknown requirement format: {type(req)}")
+                continue
+
+            if req_name:
+                cases.append({
+                    "name": f"missing_{req_name}_requirement",
+                    "method": "check_requirement",
+                    "error_msg": f"Requirement '{req_name}' (type: {req_type}) not met",
+                    "task": {"type": "basic"}
+                })
         
         if capability.get("parent"):
             cases.append({
@@ -78,18 +92,24 @@ class TestGenerator:
         ]
         param_assertions_str = "\n".join(param_assertions) or "        pass"
         
-        # Generate requirement assertions with proper model handling
+        # Generate requirement assertions with safer access and renamed variable
         req_assertions = []
-        for req in capability.get("requirements", []):
-            req_name = req.name if isinstance(req, RequirementModel) else req.get("name")
-            req_type = req.type if isinstance(req, RequirementModel) else req.get("type", "package")
-            
-            req_assertions.append(
-                f"        self.assertTrue(\n"
-                f"            self.agent.check_requirement('{req_name}', '{req_type}'),\n"
-                f"            f\"Requirement '{req_name}' (type: {req_type}) not met\"\n"
-                f"        )"
-            )
+        for req_obj in capability.get("requirements", []):
+            # Handle both dict and RequirementModel formats
+            if hasattr(req_obj, 'name'):
+                req_name = req_obj.name
+                req_type = req_obj.type
+            else:
+                req_name = req_obj.get('name')
+                req_type = req_obj.get('type', 'package')
+
+            if req_name:  # Only add assertion if we have a requirement name
+                req_assertions.append(
+                    f"        self.assertTrue(\n"
+                    f"            self.agent.check_requirement('{req_name}', '{req_type}'),\n"
+                    f"            f\"Requirement '{req_name}' (type: {req_type}) not met\"\n"
+                    f"        )"
+                )
         
         req_assertions_str = "\n".join(req_assertions) if req_assertions else "        pass"
         
@@ -142,18 +162,13 @@ class TestGenerator:
         return "\n".join(test_methods)
 
     def generate_test_file(self, output_path: str) -> None:
-        """
-        Generate a test file for the agent.
-
-        Args:
-            output_path: Path where the test file should be written
-        """
-        # Read test template
+        """Generate a test file for the agent with debug logging"""
+        print("DEBUG: Starting test file generation")
         template_path = self.template_dir / "test_agent.py.template"
         with open(template_path, "r") as f:
             template = f.read()
-                
-        # Create template context with all required values
+        
+        # Create template context
         context = {
             "name": self.agent_config["name"],
             "name_lower": self.agent_config["name"].lower(),
@@ -164,12 +179,22 @@ class TestGenerator:
             "capability_tests": self._generate_capability_specific_tests()
         }
         
-        # Replace all placeholders in template
-        content = template.format(**context)
+        print("DEBUG: Template context generated:")
+        for key, value in context.items():
+            print(f"DEBUG: {key}: {value[:100] if isinstance(value, str) else value}")
+            
+        try:
+            # Replace all placeholders in template
+            content = template.format(**context)
+            print("DEBUG: Template formatting successful")
+        except KeyError as e:
+            print(f"DEBUG: KeyError during template formatting: {e}")
+            raise
             
         # Write test file
         with open(output_path, "w") as f:
             f.write(content)
+        print(f"DEBUG: Test file written to {output_path}")
 
 def generate_tests(agent_config_path: str, capabilities_config_path: str, output_path: str, agent_name: str) -> None:
     """Generate tests with proper requirement handling"""
