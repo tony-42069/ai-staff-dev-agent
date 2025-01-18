@@ -26,11 +26,18 @@
 - [x] Requirement inheritance
 - [x] Circular dependency prevention
 
-### 5. Automatic Test Generation (DONE)
+### 5. Automatic Test Generation (IN PROGRESS)
 - [x] Test generator implementation
 - [x] Template-based test creation
 - [x] Inheritance testing
-- [x] Error case generation
+- [ ] Requirement Format Standardization
+  - [x] Updated RequirementModel with optional field
+  - [x] Updated CapabilityConfig to use RequirementModel
+  - [x] Updated test_agent.py.template for structured requirements
+  - [x] Enhanced test_generator.py with RequirementModel conversion
+  - [x] Updated capabilities.yaml to use structured format
+  - [ ] Fix KeyError: 'requirement' in test generation
+  - [ ] Ensure consistent requirement handling across system
 
 ### 6. Configuration Management (DONE)
 - [x] Dynamic configuration updates
@@ -64,7 +71,31 @@
 
 ## 🚀 Next Steps to Bring Agent to Life
 
-### 1. Initial Deployment (NEXT)
+### 1. Fix Test Generation System
+1. Debug and resolve KeyError: 'requirement' issue:
+   - Add detailed error logging
+   - Check all requirement processing points
+   - Verify data structure at each step
+
+2. Ensure consistent requirement handling:
+   - Initial configuration loading
+   - Capability inheritance
+   - Test case generation
+   - Runtime requirement checking
+
+3. Verify all components use new format:
+```python
+# Example structured requirement format
+requirements:
+  - name: "pydantic"
+    type: "package"
+    optional: false
+  - name: "PyYAML"
+    type: "package"
+    optional: false
+```
+
+### 2. Initial Deployment
 ```bash
 # Build and start the system
 docker-compose up -d
@@ -73,11 +104,11 @@ docker-compose up -d
 docker-compose ps
 ```
 
-### 2. Agent Configuration
+### 3. Agent Configuration
 1. Configure base capabilities:
 ```bash
 python private/config/templates/manage_config.py update-capability base_development \
-  '{"requirements": ["pydantic", "PyYAML"], "parameters": {"templates_path": "private/templates"}}'
+  '{"requirements": [{"name": "pydantic", "type": "package", "optional": false}, {"name": "PyYAML", "type": "package", "optional": false}], "parameters": {"templates_path": "private/templates"}}'
 ```
 
 2. Create initial agent:
@@ -86,7 +117,7 @@ python private/config/templates/manage_config.py update-agent DevAgent \
   '{"capabilities": ["project_generation", "code_generation"]}'
 ```
 
-### 3. System Verification
+### 4. System Verification
 1. Run test suite:
 ```bash
 python private/config/templates/run_tests.py
@@ -97,7 +128,7 @@ python private/config/templates/run_tests.py
 - Review metrics
 - Verify alerts
 
-### 4. Initial Tasks
+### 5. Initial Tasks
 1. Create test project:
 ```bash
 # Example: Generate a FastAPI project
@@ -229,13 +260,14 @@ python private/config/templates/manage_improvements.py report
 
 ## 🎯 Next Actions
 
-1. Deploy the system using docker-compose
-2. Configure initial agent capabilities
-3. Run comprehensive tests
-4. Monitor system performance
-5. Begin implementing improvements
-6. Expand capability set
-7. Enhance security measures
-8. Scale system resources
+1. Fix test generation system and requirement handling
+2. Deploy the system using docker-compose
+3. Configure initial agent capabilities
+4. Run comprehensive tests
+5. Monitor system performance
+6. Begin implementing improvements
+7. Expand capability set
+8. Enhance security measures
+9. Scale system resources
 
-The foundation is complete - now it's time to bring the agent to life through deployment and active use!
+The foundation is nearly complete - we need to fix the test generation system before bringing the agent to life through deployment and active use!
