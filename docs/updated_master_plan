@@ -30,14 +30,14 @@
 - [x] Test generator implementation
 - [x] Template-based test creation
 - [x] Inheritance testing
-- [ ] Requirement Format Standardization
+- [x] Requirement Format Standardization
   - [x] Updated RequirementModel with optional field
   - [x] Updated CapabilityConfig to use RequirementModel
   - [x] Updated test_agent.py.template for structured requirements
   - [x] Enhanced test_generator.py with RequirementModel conversion
   - [x] Updated capabilities.yaml to use structured format
-  - [ ] Fix KeyError: 'requirement' in test generation
-  - [ ] Ensure consistent requirement handling across system
+  - [x] Fix KeyError: 'requirement' in test generation
+  - [x] Ensure consistent requirement handling across system
 
 ### 6. Configuration Management (DONE)
 - [x] Dynamic configuration updates
