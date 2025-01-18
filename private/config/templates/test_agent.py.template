@@ -14,7 +14,7 @@ from unittest.mock import patch, MagicMock
 from agents.{name_lower}.agent import {name}Agent
 from core.exceptions import CapabilityError, ConfigurationError
 
-class Test{name}Agent(unittest.TestCase):
+class Test{name}(unittest.TestCase):
     """Test cases for {name} Agent"""
     
     def setUp(self):
@@ -45,11 +45,11 @@ class Test{name}Agent(unittest.TestCase):
         for name, capability in self.agent.capabilities.items():
             self.assertIsNotNone(capability.requirements)
             for requirement in capability.requirements:
-                with self.subTest(capability=name, requirement=requirement.name):
-                    self.assertTrue(
-                        self.agent.check_requirement(requirement.name, requirement.type),
-                        f"Requirement '{requirement.name}' (type: {requirement.type}) not met for capability '{name}'"
-                    )
+            with self.subTest(capability=name, requirement=requirement.name):
+                self.assertTrue(
+                    self.agent.check_requirement(requirement.name, requirement.type),
+                    f"Requirement '{{requirement.name}}' (type: {{requirement.type}}) not met for capability '{{name}}'"
+                )
                     
     def test_capability_parameters(self):
         """Test that all capability parameters are properly configured"""
@@ -82,7 +82,7 @@ class Test{name}Agent(unittest.TestCase):
                             )
                             self.assertTrue(
                                 inherited,
-                                f"Inherited requirement '{parent_req.name}' (type: {parent_req.type}) not found in '{capability_name}'"
+                                f"Inherited requirement '{{parent_req.name}}' (type: {{parent_req.type}}) not found in '{{capability_name}}'"
                             )
                         
     def test_capability_execution(self):
