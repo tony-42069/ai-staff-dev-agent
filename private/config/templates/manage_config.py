@@ -23,7 +23,13 @@ import sys
 import json
 import shutil
 from pathlib import Path
-from config_manager import ConfigManager
+
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from private.config.templates.config_manager import ConfigManager
+from private.config.templates.capability import RequirementModel
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Manage agent and capability configurations")
