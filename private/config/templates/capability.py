@@ -153,7 +153,18 @@ capabilities_config = {
         {
             'name': 'base_capability',
             'description': 'A base capability that others can inherit from',
-            'requirements': ['base_req1', 'base_req2'],
+            'requirements': [
+                {
+                    'name': 'base_req1',
+                    'type': 'package',
+                    'optional': False
+                },
+                {
+                    'name': 'base_req2',
+                    'type': 'package',
+                    'optional': False
+                }
+            ],
             'parameters': {
                 'base_param1': 'value1',
                 'base_param2': 'value2'
@@ -164,7 +175,13 @@ capabilities_config = {
             'name': 'derived_capability',
             'description': 'A capability that inherits from base_capability',
             'parent': 'base_capability',
-            'requirements': ['derived_req1'],
+            'requirements': [
+                {
+                    'name': 'derived_req1',
+                    'type': 'package',
+                    'optional': False
+                }
+            ],
             'parameters': {
                 'derived_param1': 'value3',
                 'base_param1': 'override_value'  # Override parent parameter
