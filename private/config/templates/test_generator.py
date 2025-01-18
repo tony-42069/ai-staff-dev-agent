@@ -109,26 +109,67 @@ class TestGenerator:
         result = capability.execute({{"type": "test"}})
         self.assertEqual(result["status"], "success")'''
 
-    def generate_test_file(self, output_path: str) -> None:
-        """Generate test file with proper requirement handling"""
-        # Load test template
-        template_path = self.template_dir / "test_agent.py.template"
-        with open(template_path, "r") as f:
-            template = f.read()
-            
-        # Generate test methods for each capability
+    def _generate_expected_capabilities(self) -> List[str]:
+        """Generate list of expected capabilities"""
+        return self.agent_config.get("capabilities", [])
+
+    def _generate_inheritance_map(self) -> Dict[str, Optional[str]]:
+        """Generate map of capability inheritance relationships"""
+        return {
+            cap["name"]: cap.get("parent")
+            for cap in self.capabilities_config
+        }
+
+    def _generate_test_tasks(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Generate test tasks for each capability"""
+        return {
+            cap["name"]: [{"type": "test"}]
+            for cap in self.capabilities_config
+        }
+
+    def _generate_error_test_cases(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Generate error test cases for each capability"""
+        return {
+            cap["name"]: self._generate_error_cases_for_capability(cap)
+            for cap in self.capabilities_config
+        }
+
+    def _generate_capability_specific_tests(self) -> str:
+        """Generate capability-specific test methods"""
         test_methods = []
         for capability in self.capabilities_config:
             test_methods.append(self._generate_test_method_for_capability(capability))
-            
-        # Replace template placeholders
-        test_file_content = template.replace(
-            "{{test_methods}}", "\n".join(test_methods)
-        )
+        return "\n".join(test_methods)
+
+    def generate_test_file(self, output_path: str) -> None:
+        """
+        Generate a test file for the agent.
+
+        Args:
+            output_path: Path where the test file should be written
+        """
+        # Read test template
+        template_path = self.template_dir / "test_agent.py.template"
+        with open(template_path, "r") as f:
+            template = f.read()
+                
+        # Create template context with all required values
+        context = {
+            "name": self.agent_config["name"],
+            "name_lower": self.agent_config["name"].lower(),
+            "expected_capabilities": self._generate_expected_capabilities(),
+            "inheritance_map": self._generate_inheritance_map(),
+            "test_tasks": self._generate_test_tasks(),
+            "error_test_cases": self._generate_error_test_cases(),
+            "capability_tests": self._generate_capability_specific_tests()
+        }
         
+        # Replace all placeholders in template
+        content = template.format(**context)
+            
         # Write test file
         with open(output_path, "w") as f:
-            f.write(test_file_content)
+            f.write(content)
 
 def generate_tests(agent_config_path: str, capabilities_config_path: str, output_path: str, agent_name: str) -> None:
     """Generate tests with proper requirement handling"""
