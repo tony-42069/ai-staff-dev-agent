@@ -14,7 +14,14 @@ import yaml
 import json
 from typing import Dict, Any
 
-from config_manager import ConfigManager
+import sys
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from private.config.templates.config_manager import ConfigManager
 from test_generator import TestGenerator
 
 class TestTemplateSystem(unittest.TestCase):

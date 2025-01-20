@@ -1,0 +1,29 @@
+- name: "DevAgent"
+  version: "1.0.0"
+  capabilities:
+    - project_generation
+    - code_generation
+  parameters:
+    default_language: python
+    max_concurrent_projects: 5
+    test_coverage_requirement: 80
+  security_level: "high"
+  environment:
+    DEVELOPMENT_MODE: "true"
+    PYTHON_VERSION: "3.9"
+    TEMPLATE_PATH: "private/templates"
+
+- name: "TestAgent"
+  version: "1.0.0"
+  capabilities:
+    - base_development
+    - development_tasks
+    - code_generation
+  parameters:
+    test_coverage_threshold: 90
+    max_test_runtime: 300
+  security_level: "medium"
+  environment:
+    TESTING_MODE: "true"
+    PYTHON_VERSION: "3.9"
+    TEST_TEMPLATE_PATH: "private/templates/tests"

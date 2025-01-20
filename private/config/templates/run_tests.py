@@ -15,7 +15,14 @@ from datetime import datetime
 from pathlib import Path
 from unittest.runner import TextTestRunner
 from unittest.result import TestResult
-from test_suite import TestTemplateSystem
+import sys
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from private.config.templates.test_suite import TestTemplateSystem
 
 class DetailedTestResult(TestResult):
     """Extended test result class with timing and details."""

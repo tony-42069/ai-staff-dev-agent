@@ -14,7 +14,7 @@ from datetime import datetime
 import shutil
 import logging
 from pydantic import BaseModel, Field, validator
-from private.config.templates.capability import RequirementModel
+from .capability import RequirementModel
 
 class CapabilityConfig(BaseModel):
     """Capability configuration model."""

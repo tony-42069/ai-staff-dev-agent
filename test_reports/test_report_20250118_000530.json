@@ -1,0 +1,43 @@
+{
+  "timestamp": "20250118_000530",
+  "total_tests": 6,
+  "failures": 0,
+  "errors": 1,
+  "run_time": 0.12149810791015625,
+  "test_results": [
+    {
+      "name": "private.config.templates.test_suite.TestTemplateSystem.test_capability_inheritance",
+      "status": "success",
+      "time": 0.0278928279876709
+    },
+    {
+      "name": "private.config.templates.test_suite.TestTemplateSystem.test_config_backup_restore",
+      "status": "success",
+      "time": 0.02220916748046875
+    },
+    {
+      "name": "private.config.templates.test_suite.TestTemplateSystem.test_config_manager_initialization",
+      "status": "success",
+      "time": 0.013677120208740234
+    },
+    {
+      "name": "private.config.templates.test_suite.TestTemplateSystem.test_config_updates",
+      "status": "success",
+      "time": 0.02010655403137207
+    },
+    {
+      "name": "private.config.templates.test_suite.TestTemplateSystem.test_config_validation",
+      "status": "success",
+      "time": 0.010474920272827148
+    },
+    {
+      "name": "private.config.templates.test_suite.TestTemplateSystem.test_test_generation",
+      "status": "error",
+      "time": 0.023632287979125977,
+      "error": {
+        "type": "KeyError",
+        "message": "'parent_req'"
+      }
+    }
+  ]
+}

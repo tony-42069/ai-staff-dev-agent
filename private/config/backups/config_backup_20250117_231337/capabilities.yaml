@@ -8,11 +8,11 @@
     templates_path: private/templates
   requirements:
   - name: pydantic
-    optional: false
     type: package
+    optional: false
   - name: PyYAML
-    optional: false
     type: package
+    optional: false
 - description: Base capability for code operations
   implementation: "try:\n    # Base code operations\n    self._setup_code_environment()\n\
     \    return {\"status\": \"success\", \"message\": \"Base code operations completed\"\
@@ -23,8 +23,8 @@
     documentation_style: google
   requirements:
   - name: black
-    optional: false
     type: package
+    optional: false
 - description: Creates new project structures and configurations
   implementation: "try:\n    project_type = task.get('project_type')\n    project_name\
     \ = task.get('project_name')\n    \n    # Generate project structure\n    structure\
@@ -43,11 +43,11 @@
   parent: base_development
   requirements:
   - name: cookiecutter
-    optional: false
     type: package
+    optional: false
   - name: GitPython
-    optional: false
     type: package
+    optional: false
 - description: Creates new AI agents with specified capabilities
   implementation: "try:\n    agent_type = task.get('agent_type')\n    capabilities\
     \ = task.get('capabilities', [])\n    \n    # Generate agent structure\n    agent_structure\
@@ -65,8 +65,8 @@
   parent: base_development
   requirements:
   - name: jinja2
-    optional: false
     type: package
+    optional: false
 - description: Generates code based on requirements and specifications
   implementation: "try:\n    code_spec = task.get('specification')\n    language =\
     \ task.get('language', 'python')\n    \n    # Generate code structure\n    code\
@@ -82,8 +82,8 @@
   parent: base_code_operations
   requirements:
   - name: autopep8
-    optional: false
     type: package
+    optional: false
 - description: Handles development tasks like testing, deployment, and maintenance
   implementation: "try:\n    task_type = task.get('task_type')\n    task_params =\
     \ task.get('parameters', {})\n    \n    # Execute development task\n    if task_type\
@@ -104,8 +104,8 @@
   parent: base_development
   requirements:
   - name: pytest
-    optional: false
     type: package
+    optional: false
   - name: docker
-    optional: false
     type: package
+    optional: false
