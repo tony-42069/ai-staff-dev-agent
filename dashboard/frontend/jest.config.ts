@@ -14,5 +14,12 @@ export default {
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
   testEnvironmentOptions: {
     customExportConditions: ['node', 'node-addons'],
+    url: 'http://localhost'
+  },
+  globals: {
+    'ts-jest': {
+      useESM: true,
+      isolatedModules: true
+    }
   }
-}; 
+};
