@@ -84,11 +84,13 @@ async def update_project(
         update(ProjectModel)
         .where(ProjectModel.id == project_id)
         .values(**update_data)
-        .returning(ProjectModel)
     )
-    result = await db.execute(update_query)
+    await db.execute(update_query)
     await db.commit()
     
+    # Fetch updated project
+    query = select(ProjectModel).where(ProjectModel.id == project_id)
+    result = await db.execute(query)
     return result.scalar_one()
 
 @router.delete("/{project_id}", status_code=204)

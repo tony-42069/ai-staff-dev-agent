@@ -12,8 +12,8 @@ class ProjectModel(Base):
     status = Column(String, default="active")
     project_metadata = Column(JSON, default=dict)
     agent_id = Column(String(36), ForeignKey("agents.id"), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationship with Agent
     agent = relationship("AgentModel", back_populates="projects")
