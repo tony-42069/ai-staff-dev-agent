@@ -1,10 +1,7 @@
 import { Box, Button, FormControl, FormErrorMessage, FormLabel, Input, Textarea, useToast, VStack } from '@chakra-ui/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
 import { useState } from 'react';
-import type { Agent } from '../../services/api';
-
-const BASE_URL = 'http://localhost:8000/api/v1';
+import { Agent, agentApi } from '../../services/api';
 
 const AgentForm = () => {
   const toast = useToast();
@@ -12,11 +9,15 @@ const AgentForm = () => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [capabilities, setCapabilities] = useState('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const createAgentMutation = useMutation({
-    mutationFn: async (newAgent: Partial<Agent>) => {
-      const response = await axios.post(`${BASE_URL}/agents`, newAgent);
+    mutationFn: async (newAgent: Omit<Agent, 'id' | 'created_at' | 'updated_at' | 'status'>) => {
+      const response = await agentApi.create({
+        ...newAgent,
+        status: 'idle'
+      });
       return response.data;
     },
     onSuccess: () => {
@@ -43,17 +44,20 @@ const AgentForm = () => {
     }
   });
 
-  const validateForm = () => {
+  const validateForm = (showErrors: boolean = false) => {
     const newErrors: Record<string, string> = {};
     if (!name) newErrors.name = 'Name is required';
     if (!capabilities) newErrors.capabilities = 'Capabilities are required';
-    setErrors(newErrors);
+    if (showErrors) {
+      setErrors(newErrors);
+    }
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    setIsSubmitted(true);
+    if (!validateForm(true)) return;
 
     createAgentMutation.mutate({
       name,
@@ -103,4 +107,4 @@ const AgentForm = () => {
   );
 };
 
-export default AgentForm; 
+export default AgentForm;
