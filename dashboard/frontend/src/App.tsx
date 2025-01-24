@@ -8,6 +8,7 @@ import ProjectsPage from '@/pages/Projects'
 import ChatPage from '@/pages/Chat'
 
 const App: FC = () => {
+  console.log('App component rendering')
   return (
     <QueryProvider>
       <ChakraProvider theme={{
