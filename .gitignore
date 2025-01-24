@@ -53,5 +53,8 @@ config.private.py
 agent_params.py
 decision_matrix.py
 
+# Database files
+*.db
+
 cline_docs/
 cline_docs

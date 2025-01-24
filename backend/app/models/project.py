@@ -7,7 +7,7 @@ class ProjectBase(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     status: str = Field(default="active", pattern=r"^(active|completed|archived)$")
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    project_metadata: Dict[str, Any] = Field(default_factory=dict)
     agent_id: Optional[str] = None
 
     model_config = ConfigDict(
@@ -35,7 +35,7 @@ class Project(ProjectBase):
                 "name": "AI Development Project",
                 "description": "Building an AI-powered development assistant",
                 "status": "active",
-                "metadata": {
+                "project_metadata": {
                     "priority": "high",
                     "tags": ["ai", "development"]
                 },

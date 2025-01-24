@@ -1,5 +1,5 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
 from typing import AsyncGenerator
 
 SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./ai_staff_dev.db"
@@ -9,7 +9,8 @@ engine = create_async_engine(
     echo=True,
 )
 
-async_session_maker = async_sessionmaker(
+# Use sessionmaker with class_=AsyncSession for SQLAlchemy 1.4
+async_session_maker = sessionmaker(
     engine,
     class_=AsyncSession,
     expire_on_commit=False,
@@ -18,12 +19,12 @@ async_session_maker = async_sessionmaker(
 Base = declarative_base()
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with async_session_maker() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close() 
+    async_session = async_session_maker()
+    try:
+        yield async_session
+        await async_session.commit()
+    except Exception:
+        await async_session.rollback()
+        raise
+    finally:
+        await async_session.close()
