@@ -1,17 +1,19 @@
 import '@testing-library/jest-dom';
+import { TextEncoder, TextDecoder } from 'util';
+import { Response, Request, Headers } from 'node-fetch';
+
+// Polyfill globals
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder as any;
+global.Response = Response as any;
+global.Request = Request as any;
+global.Headers = Headers as any;
+
+// Import MSW after polyfills
 import { setupServer } from 'msw/node';
 import { handlers } from './mocks/handlers';
 
-// Polyfill Response if not available
-if (typeof Response === 'undefined') {
-  global.Response = class Response {
-    constructor() {
-      throw new Error('Response is not supported in this environment');
-    }
-  } as any;
-}
-
-// Setup requests interception using the given handlers
+// Setup MSW server
 export const server = setupServer(...handlers);
 
 beforeAll(() => server.listen());

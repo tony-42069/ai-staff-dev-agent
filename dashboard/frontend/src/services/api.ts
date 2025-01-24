@@ -2,12 +2,6 @@ import axios, { AxiosError, AxiosResponse } from 'axios';
 
 const BASE_URL = 'http://localhost:8000/api/v1';
 
-// API Response type
-export interface ApiResponse<T> {
-  data: T;
-  message?: string;
-}
-
 // Error response type
 export interface ApiError {
   detail: string;
@@ -32,16 +26,29 @@ export type UpdateAgentDto = Partial<CreateAgentDto>;
 export interface Project {
   id: string;
   name: string;
-  description: string;
-  repository_url?: string;
+  description?: string;
   status: 'active' | 'completed' | 'archived';
-  assigned_agents: string[];
+  project_metadata: Record<string, any>;
+  agent_id?: string;
   created_at: string;
   updated_at: string;
 }
 
-export type CreateProjectDto = Omit<Project, 'id' | 'created_at' | 'updated_at'>;
-export type UpdateProjectDto = Partial<CreateProjectDto>;
+export interface CreateProjectDto {
+  name: string;
+  description?: string;
+  status?: 'active' | 'completed' | 'archived';
+  project_metadata?: Record<string, any>;
+  agent_id?: string;
+}
+
+export interface UpdateProjectDto {
+  name?: string;
+  description?: string;
+  status?: 'active' | 'completed' | 'archived';
+  project_metadata?: Record<string, any>;
+  agent_id?: string;
+}
 
 // Create axios instance with configuration
 export const api = axios.create({
@@ -54,7 +61,7 @@ export const api = axios.create({
 
 // Add response interceptor for consistent error handling
 api.interceptors.response.use(
-  (response: AxiosResponse) => response,
+  (response: AxiosResponse) => response.data,
   (error: AxiosError<ApiError>) => {
     // Handle network errors
     if (!error.response) {
@@ -78,10 +85,10 @@ api.interceptors.response.use(
 
 // Retry configuration
 const retryRequest = async <T>(
-  request: () => Promise<AxiosResponse<T>>,
+  request: () => Promise<T>,
   retries: number = 3,
   delay: number = 1000
-): Promise<AxiosResponse<T>> => {
+): Promise<T> => {
   try {
     return await request();
   } catch (error) {
@@ -96,37 +103,37 @@ const retryRequest = async <T>(
 // Agent API
 export const agentApi = {
   getAll: () => 
-    retryRequest(() => api.get<ApiResponse<Agent[]>>('/agents')),
+    retryRequest(() => api.get<Agent[]>('/agents')),
   
   getById: (id: string) => 
-    retryRequest(() => api.get<ApiResponse<Agent>>(`/agents/${id}`)),
+    retryRequest(() => api.get<Agent>(`/agents/${id}`)),
   
   create: (data: CreateAgentDto) => 
-    api.post<ApiResponse<Agent>>('/agents', data),
+    api.post<Agent>('/agents', data),
   
   update: (id: string, data: UpdateAgentDto) => 
-    api.put<ApiResponse<Agent>>(`/agents/${id}`, data),
+    api.put<Agent>(`/agents/${id}`, data),
   
   delete: (id: string) => 
-    api.delete<ApiResponse<void>>(`/agents/${id}`),
+    api.delete(`/agents/${id}`),
 };
 
 // Project API
 export const projectApi = {
   getAll: () => 
-    retryRequest(() => api.get<ApiResponse<Project[]>>('/projects')),
+    retryRequest(() => api.get<Project[]>('/projects')),
   
   getById: (id: string) => 
-    retryRequest(() => api.get<ApiResponse<Project>>(`/projects/${id}`)),
+    retryRequest(() => api.get<Project>(`/projects/${id}`)),
   
   create: (data: CreateProjectDto) => 
-    api.post<ApiResponse<Project>>('/projects', data),
+    api.post<Project>('/projects', data),
   
   update: (id: string, data: UpdateProjectDto) => 
-    api.put<ApiResponse<Project>>(`/projects/${id}`, data),
+    api.patch<Project>(`/projects/${id}`, data),
   
   delete: (id: string) => 
-    api.delete<ApiResponse<void>>(`/projects/${id}`),
+    api.delete(`/projects/${id}`),
 };
 
 export default api;
