@@ -13,11 +13,21 @@ import {
   HStack,
   Text,
   Alert,
-  AlertIcon
+  AlertIcon,
+  Card,
+  CardHeader,
+  CardBody,
+  Heading,
+  Divider,
+  Flex,
+  IconButton,
+  Tooltip,
+  useColorModeValue
 } from '@chakra-ui/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Agent, agentApi } from '../../services/api';
+import { AddIcon } from '@chakra-ui/icons';
 
 const VALID_CAPABILITIES = [
   'code_review',
@@ -36,6 +46,10 @@ const AgentForm = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Color mode values
+  const cardBg = useColorModeValue('white', 'gray.700');
+  const tagHoverBg = useColorModeValue('blue.100', 'blue.600');
+
   const createAgentMutation = useMutation({
     mutationFn: async (newAgent: Omit<Agent, 'id' | 'created_at' | 'updated_at' | 'status'>) => {
       const response = await agentApi.create({
@@ -52,6 +66,7 @@ const AgentForm = () => {
         status: 'success',
         duration: 3000,
         isClosable: true,
+        position: 'top-right'
       });
       // Reset form
       setName('');
@@ -67,6 +82,7 @@ const AgentForm = () => {
         status: 'error',
         duration: 5000,
         isClosable: true,
+        position: 'top-right'
       });
       if (error.response?.data?.validation_errors) {
         setErrors(error.response.data.validation_errors);
@@ -130,75 +146,144 @@ const AgentForm = () => {
     });
   };
 
+  const addCapability = (cap: string) => {
+    const currentCaps = capabilities
+      .split(',')
+      .map(c => c.trim())
+      .filter(Boolean);
+    
+    if (!currentCaps.includes(cap)) {
+      const newCaps = [...currentCaps, cap];
+      setCapabilities(newCaps.join(', '));
+      if (isSubmitted) validateForm(true);
+    }
+  };
+
   return (
-    <Box as="form" onSubmit={handleSubmit}>
-      <VStack spacing={4} align="stretch">
-        <FormControl isInvalid={isSubmitted && !!errors.name}>
-          <FormLabel htmlFor="name">Name</FormLabel>
-          <Input
-            id="name"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              if (isSubmitted) validateForm(true);
-            }}
-            placeholder="Enter agent name"
-          />
-          <FormHelperText>Must be between 3 and 50 characters</FormHelperText>
-          <FormErrorMessage>{errors.name}</FormErrorMessage>
-        </FormControl>
+    <Card bg={cardBg} shadow="md" borderRadius="lg">
+      <CardHeader>
+        <Heading size="md">Manage Agents</Heading>
+      </CardHeader>
+      <Divider />
+      <CardBody>
+        <Box as="form" onSubmit={handleSubmit}>
+          <VStack spacing={6} align="stretch">
+            <FormControl isInvalid={isSubmitted && !!errors.name}>
+              <FormLabel htmlFor="name" fontWeight="medium">Name</FormLabel>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (isSubmitted) validateForm(true);
+                }}
+                placeholder="Enter agent name"
+                size="md"
+                borderRadius="md"
+              />
+              <FormHelperText color="gray.500">
+                Must be between 3 and 50 characters
+              </FormHelperText>
+              {errors.name && (
+                <FormErrorMessage>
+                  {errors.name}
+                </FormErrorMessage>
+              )}
+            </FormControl>
 
-        <FormControl>
-          <FormLabel htmlFor="description">Description</FormLabel>
-          <Textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Enter agent description (optional)"
-          />
-        </FormControl>
+            <FormControl>
+              <FormLabel htmlFor="description" fontWeight="medium">Description</FormLabel>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Enter agent description (optional)"
+                size="md"
+                borderRadius="md"
+                rows={3}
+              />
+            </FormControl>
 
-        <FormControl isInvalid={isSubmitted && !!errors.capabilities}>
-          <FormLabel htmlFor="capabilities">Capabilities</FormLabel>
-          <Input
-            id="capabilities"
-            value={capabilities}
-            onChange={(e) => {
-              setCapabilities(e.target.value);
-              if (isSubmitted) validateForm(true);
-            }}
-            placeholder="e.g., code_review,testing,development"
-          />
-          <FormHelperText>
-            Available capabilities:
-            <HStack spacing={2} mt={2}>
-              {VALID_CAPABILITIES.map(cap => (
-                <Tag key={cap} size="sm" colorScheme="blue">
-                  {cap}
-                </Tag>
-              ))}
-            </HStack>
-          </FormHelperText>
-          <FormErrorMessage>{errors.capabilities}</FormErrorMessage>
-        </FormControl>
+            <FormControl isInvalid={isSubmitted && !!errors.capabilities}>
+              <FormLabel htmlFor="capabilities" fontWeight="medium">Capabilities</FormLabel>
+              <Input
+                id="capabilities"
+                value={capabilities}
+                onChange={(e) => {
+                  setCapabilities(e.target.value);
+                  if (isSubmitted) validateForm(true);
+                }}
+                placeholder="e.g., code_review, testing, development"
+                size="md"
+                borderRadius="md"
+              />
+              <FormHelperText color="gray.500" mb={2}>
+                Click to add capabilities or type them manually (comma-separated)
+              </FormHelperText>
+              
+              <Flex wrap="wrap" gap={2}>
+                {VALID_CAPABILITIES.map(cap => (
+                  <Tooltip 
+                    key={cap} 
+                    label="Click to add"
+                    placement="top"
+                  >
+                    <Tag
+                      size="md"
+                      variant="subtle"
+                      colorScheme="blue"
+                      cursor="pointer"
+                      onClick={() => addCapability(cap)}
+                      _hover={{ bg: tagHoverBg }}
+                      display="flex"
+                      alignItems="center"
+                    >
+                      {cap}
+                      <IconButton
+                        aria-label={`Add ${cap}`}
+                        icon={<AddIcon />}
+                        size="xs"
+                        ml={1}
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addCapability(cap);
+                        }}
+                      />
+                    </Tag>
+                  </Tooltip>
+                ))}
+              </Flex>
+              
+              {errors.capabilities && (
+                <FormErrorMessage>
+                  {errors.capabilities}
+                </FormErrorMessage>
+              )}
+            </FormControl>
 
-        {createAgentMutation.isError && (
-          <Alert status="error">
-            <AlertIcon />
-            <Text>Failed to create agent. Please try again.</Text>
-          </Alert>
-        )}
+            {createAgentMutation.isError && (
+              <Alert status="error" borderRadius="md">
+                <AlertIcon />
+                <Text>Failed to create agent. Please try again.</Text>
+              </Alert>
+            )}
 
-        <Button 
-          type="submit" 
-          colorScheme="blue"
-          isLoading={createAgentMutation.isPending}
-          loadingText="Creating..."
-        >
-          Create Agent
-        </Button>
-      </VStack>
-    </Box>
+            <Button 
+              type="submit" 
+              colorScheme="blue"
+              isLoading={createAgentMutation.isPending}
+              loadingText="Creating..."
+              size="lg"
+              width="full"
+              mt={4}
+            >
+              Create Agent
+            </Button>
+          </VStack>
+        </Box>
+      </CardBody>
+    </Card>
   );
 };
 

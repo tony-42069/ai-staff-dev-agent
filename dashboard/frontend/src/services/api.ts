@@ -8,6 +8,11 @@ export interface ApiError {
   validation_errors?: Record<string, string>;
 }
 
+// API response type
+export interface ApiResponse<T> {
+  data: T;
+}
+
 // Agent types
 export interface Agent {
   id: string;
@@ -103,16 +108,16 @@ const retryRequest = async <T>(
 // Agent API
 export const agentApi = {
   getAll: () => 
-    retryRequest(() => api.get<Agent[]>('/agents')),
+    retryRequest(() => api.get<ApiResponse<Agent[]>>('/agents')),
   
   getById: (id: string) => 
-    retryRequest(() => api.get<Agent>(`/agents/${id}`)),
+    retryRequest(() => api.get<ApiResponse<Agent>>(`/agents/${id}`)),
   
   create: (data: CreateAgentDto) => 
-    api.post<Agent>('/agents', data),
+    api.post<ApiResponse<Agent>>('/agents', data),
   
   update: (id: string, data: UpdateAgentDto) => 
-    api.put<Agent>(`/agents/${id}`, data),
+    api.put<ApiResponse<Agent>>(`/agents/${id}`, data),
   
   delete: (id: string) => 
     api.delete(`/agents/${id}`),
@@ -121,16 +126,16 @@ export const agentApi = {
 // Project API
 export const projectApi = {
   getAll: () => 
-    retryRequest(() => api.get<Project[]>('/projects')),
+    retryRequest(() => api.get<ApiResponse<Project[]>>('/projects')),
   
   getById: (id: string) => 
-    retryRequest(() => api.get<Project>(`/projects/${id}`)),
+    retryRequest(() => api.get<ApiResponse<Project>>(`/projects/${id}`)),
   
   create: (data: CreateProjectDto) => 
-    api.post<Project>('/projects', data),
+    api.post<ApiResponse<Project>>('/projects', data),
   
   update: (id: string, data: UpdateProjectDto) => 
-    api.patch<Project>(`/projects/${id}`, data),
+    api.patch<ApiResponse<Project>>(`/projects/${id}`, data),
   
   delete: (id: string) => 
     api.delete(`/projects/${id}`),

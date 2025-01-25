@@ -7,7 +7,6 @@ import {
   Th, 
   Td, 
   Text, 
-  Spinner, 
   Center, 
   Button, 
   HStack, 
@@ -17,32 +16,51 @@ import {
   Alert,
   AlertIcon,
   AlertTitle,
-  AlertDescription
+  AlertDescription,
+  Card,
+  CardHeader,
+  CardBody,
+  Heading,
+  Divider,
+  useColorModeValue,
+  Skeleton,
+  Stack,
+  Tooltip,
+  Badge
 } from '@chakra-ui/react';
 import { FC } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Agent, agentApi, ApiResponse } from '../../services/api';
+import { Agent, agentApi } from '../../services/api';
 import { RepeatIcon, DeleteIcon, EditIcon } from '@chakra-ui/icons';
+
+interface ApiResponse<T> {
+  data: T;
+}
 
 const AgentList: FC = () => {
   const toast = useToast();
   const queryClient = useQueryClient();
 
+  // Color mode values
+  const cardBg = useColorModeValue('white', 'gray.700');
+  const tableBg = useColorModeValue('white', 'gray.800');
+  const hoverBg = useColorModeValue('gray.50', 'gray.700');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const descriptionColor = useColorModeValue('gray.600', 'gray.400');
+
   const { 
-    data: response, 
+    data: agents = [], 
     isLoading, 
     error, 
     refetch,
     isRefetching 
-  } = useQuery<ApiResponse<Agent[]>>({
+  } = useQuery<Agent[]>({
     queryKey: ['agents'],
     queryFn: async () => {
       const response = await agentApi.getAll();
-      return response.data;
+      return (response as unknown as ApiResponse<Agent[]>).data;
     }
   });
-
-  const agents = response?.data;
 
   const deleteMutation = useMutation({
     mutationFn: async (agentId: string) => {
@@ -55,6 +73,7 @@ const AgentList: FC = () => {
         status: 'success',
         duration: 3000,
         isClosable: true,
+        position: 'top-right'
       });
     },
     onError: () => {
@@ -64,6 +83,7 @@ const AgentList: FC = () => {
         status: 'error',
         duration: 3000,
         isClosable: true,
+        position: 'top-right'
       });
     }
   });
@@ -89,129 +109,176 @@ const AgentList: FC = () => {
 
   if (isLoading) {
     return (
-      <Center p={8}>
-        <Spinner size="xl" />
-      </Center>
+      <Card bg={cardBg} shadow="md" borderRadius="lg">
+        <CardHeader>
+          <HStack justify="space-between">
+            <Heading size="md">Active Agents</Heading>
+            <Skeleton height="32px" width="100px" />
+          </HStack>
+        </CardHeader>
+        <Divider />
+        <CardBody>
+          <Stack spacing={4}>
+            <Skeleton height="50px" />
+            <Skeleton height="50px" />
+            <Skeleton height="50px" />
+          </Stack>
+        </CardBody>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <Alert
-        status="error"
-        variant="subtle"
-        flexDirection="column"
-        alignItems="center"
-        justifyContent="center"
-        textAlign="center"
-        height="200px"
-        borderRadius="lg"
-      >
-        <AlertIcon boxSize="40px" mr={0} />
-        <AlertTitle mt={4} mb={1} fontSize="lg">
-          Failed to load agents
-        </AlertTitle>
-        <AlertDescription maxWidth="sm">
-          There was an error loading the agents list. Please try again later.
-        </AlertDescription>
-        <Button
-          leftIcon={<RepeatIcon />}
-          onClick={() => refetch()}
-          mt={4}
-          isLoading={isRefetching}
-        >
-          Retry
-        </Button>
-      </Alert>
+      <Card bg={cardBg} shadow="md" borderRadius="lg">
+        <CardHeader>
+          <Heading size="md">Active Agents</Heading>
+        </CardHeader>
+        <Divider />
+        <CardBody>
+          <Alert
+            status="error"
+            variant="subtle"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            textAlign="center"
+            borderRadius="lg"
+            py={6}
+          >
+            <AlertIcon boxSize="40px" mr={0} />
+            <AlertTitle mt={4} mb={1} fontSize="lg">
+              Failed to load agents
+            </AlertTitle>
+            <AlertDescription maxWidth="sm" mb={4}>
+              There was an error loading the agents list. Please try again later.
+            </AlertDescription>
+            <Button
+              leftIcon={<RepeatIcon />}
+              onClick={() => refetch()}
+              isLoading={isRefetching}
+              colorScheme="blue"
+            >
+              Retry
+            </Button>
+          </Alert>
+        </CardBody>
+      </Card>
     );
   }
 
   return (
-    <Box borderWidth="1px" borderRadius="lg" p={4}>
-      <HStack mb={4} justify="space-between">
-        <Text fontSize="lg" fontWeight="semibold">Active Agents</Text>
-        <Button
-          leftIcon={<RepeatIcon />}
-          onClick={() => refetch()}
-          isLoading={isRefetching}
-          size="sm"
-        >
-          Refresh
-        </Button>
-      </HStack>
-
-      {!agents || agents.length === 0 ? (
-        <Center p={8}>
-          <Text color="gray.500">No agents available</Text>
-        </Center>
-      ) : (
-        <Table variant="simple">
-          <Thead>
-            <Tr>
-              <Th>Name</Th>
-              <Th>Status</Th>
-              <Th>Capabilities</Th>
-              <Th>Actions</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {agents.map((agent: Agent) => (
-              <Tr key={agent.id}>
-                <Td>
-                  <Text fontWeight="medium">{agent.name}</Text>
-                  {agent.description && (
-                    <Text fontSize="sm" color="gray.600">
-                      {agent.description}
-                    </Text>
-                  )}
-                </Td>
-                <Td>
-                  <Tag colorScheme={getStatusColor(agent.status)}>
-                    {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
-                  </Tag>
-                </Td>
-                <Td>
-                  <HStack spacing={2} wrap="wrap">
-                    {agent.capabilities.map((capability: string, index: number) => (
-                      <Tag key={index} size="sm" colorScheme="blue">
-                        {capability}
-                      </Tag>
-                    ))}
-                  </HStack>
-                </Td>
-                <Td>
-                  <HStack spacing={2}>
-                    <IconButton
-                      aria-label="Edit agent"
-                      icon={<EditIcon />}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        // TODO: Implement edit functionality
-                        toast({
-                          title: 'Edit functionality coming soon',
-                          status: 'info',
-                          duration: 2000,
-                        });
-                      }}
-                    />
-                    <IconButton
-                      aria-label="Delete agent"
-                      icon={<DeleteIcon />}
-                      size="sm"
-                      variant="ghost"
-                      colorScheme="red"
-                      onClick={() => handleDelete(agent.id)}
-                      isLoading={deleteMutation.isPending}
-                    />
-                  </HStack>
-                </Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
-      )}
-    </Box>
+    <Card bg={cardBg} shadow="md" borderRadius="lg">
+      <CardHeader>
+        <HStack justify="space-between">
+          <Heading size="md">Active Agents</Heading>
+          <Button
+            leftIcon={<RepeatIcon />}
+            onClick={() => refetch()}
+            isLoading={isRefetching}
+            size="sm"
+            colorScheme="blue"
+            variant="outline"
+          >
+            Refresh
+          </Button>
+        </HStack>
+      </CardHeader>
+      <Divider />
+      <CardBody p={0}>
+        {agents.length === 0 ? (
+          <Center p={8}>
+            <Text color={descriptionColor}>No agents available</Text>
+          </Center>
+        ) : (
+          <Box overflowX="auto">
+            <Table variant="simple">
+              <Thead bg={tableBg}>
+                <Tr>
+                  <Th borderColor={borderColor}>Name</Th>
+                  <Th borderColor={borderColor}>Status</Th>
+                  <Th borderColor={borderColor}>Capabilities</Th>
+                  <Th borderColor={borderColor} width="100px">Actions</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {agents.map((agent: Agent) => (
+                  <Tr 
+                    key={agent.id}
+                    _hover={{ bg: hoverBg }}
+                    transition="background-color 0.2s"
+                  >
+                    <Td borderColor={borderColor}>
+                      <Text fontWeight="medium">{agent.name}</Text>
+                      {agent.description && (
+                        <Text fontSize="sm" color={descriptionColor} mt={1}>
+                          {agent.description}
+                        </Text>
+                      )}
+                    </Td>
+                    <Td borderColor={borderColor}>
+                      <Badge
+                        colorScheme={getStatusColor(agent.status)}
+                        px={2}
+                        py={1}
+                        borderRadius="full"
+                      >
+                        {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
+                      </Badge>
+                    </Td>
+                    <Td borderColor={borderColor}>
+                      <HStack spacing={2} wrap="wrap">
+                        {agent.capabilities.map((capability: string, index: number) => (
+                          <Tag 
+                            key={index} 
+                            size="sm" 
+                            colorScheme="blue"
+                            borderRadius="full"
+                          >
+                            {capability}
+                          </Tag>
+                        ))}
+                      </HStack>
+                    </Td>
+                    <Td borderColor={borderColor}>
+                      <HStack spacing={2}>
+                        <Tooltip label="Edit agent" placement="top">
+                          <IconButton
+                            aria-label="Edit agent"
+                            icon={<EditIcon />}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              toast({
+                                title: 'Edit functionality coming soon',
+                                status: 'info',
+                                duration: 2000,
+                                position: 'top-right'
+                              });
+                            }}
+                          />
+                        </Tooltip>
+                        <Tooltip label="Delete agent" placement="top">
+                          <IconButton
+                            aria-label="Delete agent"
+                            icon={<DeleteIcon />}
+                            size="sm"
+                            variant="ghost"
+                            colorScheme="red"
+                            onClick={() => handleDelete(agent.id)}
+                            isLoading={deleteMutation.isPending}
+                          />
+                        </Tooltip>
+                      </HStack>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
+        )}
+      </CardBody>
+    </Card>
   );
 };
 
