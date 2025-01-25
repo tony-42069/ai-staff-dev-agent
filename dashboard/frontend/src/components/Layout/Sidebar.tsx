@@ -1,7 +1,8 @@
 import { Box, VStack, Link, Icon } from '@chakra-ui/react'
 import { FiHome, FiUsers, FiFolder, FiSettings, FiMessageSquare } from 'react-icons/fi'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
-import { FC } from 'react'
+import { FC, useState } from 'react'
+import SidebarFilters from './SidebarFilters'
 
 interface NavItemProps {
   to: string
@@ -36,6 +37,16 @@ const NavItem: FC<NavItemProps> = ({ to, icon, children }) => {
 }
 
 const Sidebar: FC = () => {
+  const [filters, setFilters] = useState({});
+  const location = useLocation();
+  
+  const handleFilterChange = (newFilters: any) => {
+    setFilters(newFilters);
+    // Emit filter changes to parent components
+    const event = new CustomEvent('filterChange', { detail: newFilters });
+    window.dispatchEvent(event);
+  };
+
   return (
     <Box
       bg="white"
@@ -44,8 +55,9 @@ const Sidebar: FC = () => {
       py={5}
       borderRight="1px"
       borderColor="gray.200"
+      overflowY="auto"
     >
-      <VStack spacing={2} align="stretch" px={3}>
+      <VStack spacing={2} align="stretch" px={3} mb={4}>
         <NavItem to="/" icon={FiHome}>
           Dashboard
         </NavItem>
@@ -62,8 +74,12 @@ const Sidebar: FC = () => {
           Settings
         </NavItem>
       </VStack>
+      
+      {(location.pathname === '/agents' || location.pathname === '/projects') && (
+        <SidebarFilters onFilterChange={handleFilterChange} />
+      )}
     </Box>
   )
 }
 
-export default Sidebar 
+export default Sidebar

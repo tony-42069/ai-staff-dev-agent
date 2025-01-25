@@ -1,32 +1,59 @@
-import React, { useState } from 'react';
+import { FC, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box,
   Button,
   Card,
-  CardContent,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  CardHeader,
+  CardBody,
   Grid,
-  TextField,
-  Typography,
+  GridItem,
+  Text,
   IconButton,
-  Chip,
+  useToast,
+  Badge,
+  Stack,
+  HStack,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
   FormControl,
-  InputLabel,
+  FormLabel,
+  Input,
+  Textarea,
   Select,
-  MenuItem,
-  SelectChangeEvent,
-} from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import { Project, CreateProjectDto, UpdateProjectDto, projectApi } from '../../services/api';
+  useColorModeValue,
+  Heading,
+  SimpleGrid,
+  Divider,
+  Tooltip,
+  Code,
+  Skeleton
+} from '@chakra-ui/react';
+import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
+import { Project, CreateProjectDto, UpdateProjectDto, projectApi, ApiResponse } from '../../services/api';
 
-export const Projects: React.FC = () => {
+interface Filters {
+  search?: string;
+  statuses?: string[];
+}
+
+export const Projects: FC = () => {
+  const toast = useToast();
   const queryClient = useQueryClient();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  // Color mode values
+  const cardBg = useColorModeValue('white', 'gray.700');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const metadataBg = useColorModeValue('gray.50', 'gray.800');
+  const descriptionColor = useColorModeValue('gray.600', 'gray.400');
+
+  // State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [formData, setFormData] = useState<CreateProjectDto>({
     name: '',
@@ -34,21 +61,88 @@ export const Projects: React.FC = () => {
     status: 'active',
     project_metadata: {},
   });
+  const [filters, setFilters] = useState<Filters>({});
+  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
 
-  // Fetch projects
-  const { data: projects = [], isLoading } = useQuery<Project[]>({
+  // Query projects
+  const { 
+    data: projects = [], 
+    isLoading,
+    error,
+    refetch,
+    isRefetching
+  } = useQuery<Project[]>({
     queryKey: ['projects'],
-    queryFn: () => projectApi.getAll(),
+    queryFn: async () => {
+      const response = await projectApi.getAll();
+      return (response as unknown as ApiResponse<Project[]>).data;
+    }
   });
+
+  // Listen for filter changes from sidebar
+  useEffect(() => {
+    const handleFilterChange = (event: CustomEvent<Filters>) => {
+      setFilters(event.detail);
+    };
+
+    window.addEventListener('filterChange', handleFilterChange as EventListener);
+    return () => {
+      window.removeEventListener('filterChange', handleFilterChange as EventListener);
+    };
+  }, []);
+
+  // Initialize filteredProjects with projects data
+  useEffect(() => {
+    setFilteredProjects(projects);
+  }, [projects]);
+
+  // Apply filters to projects
+  useEffect(() => {
+    if (!projects.length) return;
+
+    let result = [...projects];
+
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      result = result.filter(
+        project =>
+          project.name.toLowerCase().includes(searchTerm) ||
+          project.description?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    if (filters.statuses?.length) {
+      result = result.filter(project => filters.statuses?.includes(project.status));
+    }
+
+    setFilteredProjects(result);
+  }, [projects, filters]);
 
   // Create project mutation
   const createMutation = useMutation({
     mutationFn: (data: CreateProjectDto) => projectApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      setIsCreateDialogOpen(false);
+      setIsCreateModalOpen(false);
       resetForm();
+      toast({
+        title: 'Project created',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+        position: 'top-right'
+      });
     },
+    onError: () => {
+      toast({
+        title: 'Error creating project',
+        description: 'Please try again later',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+        position: 'top-right'
+      });
+    }
   });
 
   // Update project mutation
@@ -57,9 +151,26 @@ export const Projects: React.FC = () => {
       projectApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      setIsEditDialogOpen(false);
+      setIsEditModalOpen(false);
       setSelectedProject(null);
+      toast({
+        title: 'Project updated',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+        position: 'top-right'
+      });
     },
+    onError: () => {
+      toast({
+        title: 'Error updating project',
+        description: 'Please try again later',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+        position: 'top-right'
+      });
+    }
   });
 
   // Delete project mutation
@@ -67,7 +178,24 @@ export const Projects: React.FC = () => {
     mutationFn: (id: string) => projectApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast({
+        title: 'Project deleted',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+        position: 'top-right'
+      });
     },
+    onError: () => {
+      toast({
+        title: 'Error deleting project',
+        description: 'Please try again later',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+        position: 'top-right'
+      });
+    }
   });
 
   const resetForm = () => {
@@ -102,7 +230,7 @@ export const Projects: React.FC = () => {
       status: project.status,
       project_metadata: project.project_metadata,
     });
-    setIsEditDialogOpen(true);
+    setIsEditModalOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -111,166 +239,231 @@ export const Projects: React.FC = () => {
     }
   };
 
-  const handleStatusChange = (e: SelectChangeEvent<string>) => {
+  const handleStatusChange = (value: string) => {
     setFormData({
       ...formData,
-      status: e.target.value as Project['status'],
+      status: value as Project['status'],
     });
   };
 
-  if (isLoading) {
-    return <Typography>Loading projects...</Typography>;
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'green';
+      case 'completed':
+        return 'blue';
+      case 'archived':
+        return 'gray';
+      default:
+        return 'gray';
+    }
+  };
+
+  if (isLoading || !filteredProjects) {
+    return (
+      <Box p={5}>
+        <Card bg={cardBg} shadow="md" borderRadius="lg">
+          <CardHeader>
+            <HStack justify="space-between">
+              <Heading size="md">Projects</Heading>
+              <Skeleton height="32px" width="120px" data-testid="skeleton" />
+            </HStack>
+          </CardHeader>
+          <Divider />
+          <CardBody>
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+              <Skeleton height="200px" data-testid="skeleton" />
+              <Skeleton height="200px" data-testid="skeleton" />
+              <Skeleton height="200px" data-testid="skeleton" />
+            </SimpleGrid>
+          </CardBody>
+        </Card>
+      </Box>
+    );
   }
 
   return (
-    <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Projects</Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setIsCreateDialogOpen(true)}
-        >
-          Create Project
-        </Button>
-      </Box>
-
-      <Grid container spacing={3}>
-        {projects.map((project) => (
-          <Grid item xs={12} sm={6} md={4} key={project.id}>
-            <Card>
-              <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                  <Typography variant="h6" gutterBottom>
-                    {project.name}
-                  </Typography>
-                  <Box>
-                    <IconButton size="small" onClick={() => handleEdit(project)}>
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton size="small" onClick={() => handleDelete(project.id)}>
-                      <DeleteIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-                <Typography color="textSecondary" gutterBottom>
-                  {project.description}
-                </Typography>
-                <Chip
-                  label={project.status}
-                  color={
-                    project.status === 'completed'
-                      ? 'success'
-                      : project.status === 'archived'
-                      ? 'default'
-                      : 'primary'
-                  }
-                  size="small"
-                  sx={{ mt: 1 }}
-                />
-                {project.project_metadata && Object.keys(project.project_metadata).length > 0 && (
-                  <Box mt={2}>
-                    <Typography variant="subtitle2">Metadata:</Typography>
-                    <pre style={{ margin: 0, fontSize: '0.875rem' }}>
-                      {JSON.stringify(project.project_metadata, null, 2)}
-                    </pre>
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* Create Project Dialog */}
-      <Dialog open={isCreateDialogOpen} onClose={() => setIsCreateDialogOpen(false)}>
-        <form onSubmit={handleCreateSubmit}>
-          <DialogTitle>Create Project</DialogTitle>
-          <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Name"
-              fullWidth
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
-            <TextField
-              margin="dense"
-              label="Description"
-              fullWidth
-              multiline
-              rows={3}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={formData.status}
-                label="Status"
-                onChange={handleStatusChange}
+    <Box p={5}>
+      <Card bg={cardBg} shadow="md" borderRadius="lg">
+        <CardHeader>
+          <HStack justify="space-between">
+            <Heading size="md">Projects</Heading>
+            <HStack spacing={2}>
+              <Button
+                leftIcon={<EditIcon />}
+                onClick={() => setIsCreateModalOpen(true)}
+                colorScheme="blue"
+                size="sm"
               >
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
-                <MenuItem value="archived">Archived</MenuItem>
-              </Select>
-            </FormControl>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained" color="primary">
+                Create Project
+              </Button>
+            </HStack>
+          </HStack>
+        </CardHeader>
+        <Divider />
+        <CardBody>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+            {filteredProjects.map((project) => (
+              <Card key={project.id} variant="outline" size="sm">
+                <CardBody>
+                  <Stack spacing={3}>
+                    <HStack justify="space-between" align="flex-start">
+                      <Box>
+                        <Heading size="sm" mb={1}>
+                          {project.name}
+                        </Heading>
+                        <Badge colorScheme={getStatusColor(project.status)}>
+                          {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                        </Badge>
+                      </Box>
+                      <HStack>
+                        <Tooltip label="Edit project">
+                          <IconButton
+                            aria-label="Edit project"
+                            icon={<EditIcon />}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEdit(project)}
+                          />
+                        </Tooltip>
+                        <Tooltip label="Delete project">
+                          <IconButton
+                            aria-label="Delete project"
+                            icon={<DeleteIcon />}
+                            size="sm"
+                            variant="ghost"
+                            colorScheme="red"
+                            onClick={() => handleDelete(project.id)}
+                          />
+                        </Tooltip>
+                      </HStack>
+                    </HStack>
+                    
+                    {project.description && (
+                      <Text fontSize="sm" color={descriptionColor}>
+                        {project.description}
+                      </Text>
+                    )}
+
+                    {project.project_metadata && Object.keys(project.project_metadata).length > 0 && (
+                      <Box
+                        bg={metadataBg}
+                        p={2}
+                        borderRadius="md"
+                        fontSize="sm"
+                      >
+                        <Text fontWeight="medium" mb={1}>
+                          Metadata
+                        </Text>
+                        <Code
+                          display="block"
+                          whiteSpace="pre"
+                          children={JSON.stringify(project.project_metadata, null, 2)}
+                          p={2}
+                          borderRadius="md"
+                          fontSize="xs"
+                        />
+                      </Box>
+                    )}
+                  </Stack>
+                </CardBody>
+              </Card>
+            ))}
+          </SimpleGrid>
+        </CardBody>
+      </Card>
+
+      {/* Create Project Modal */}
+      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)}>
+        <ModalOverlay />
+        <ModalContent as="form" onSubmit={handleCreateSubmit}>
+          <ModalHeader>Create Project</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Stack spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>Name</FormLabel>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Description</FormLabel>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Status</FormLabel>
+                <Select
+                  value={formData.status}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                >
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="archived">Archived</option>
+                </Select>
+              </FormControl>
+            </Stack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={() => setIsCreateModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button colorScheme="blue" type="submit" isLoading={createMutation.isPending}>
               Create
             </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
-      {/* Edit Project Dialog */}
-      <Dialog open={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)}>
-        <form onSubmit={handleEditSubmit}>
-          <DialogTitle>Edit Project</DialogTitle>
-          <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Name"
-              fullWidth
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
-            <TextField
-              margin="dense"
-              label="Description"
-              fullWidth
-              multiline
-              rows={3}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={formData.status}
-                label="Status"
-                onChange={handleStatusChange}
-              >
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
-                <MenuItem value="archived">Archived</MenuItem>
-              </Select>
-            </FormControl>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained" color="primary">
+      {/* Edit Project Modal */}
+      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)}>
+        <ModalOverlay />
+        <ModalContent as="form" onSubmit={handleEditSubmit}>
+          <ModalHeader>Edit Project</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Stack spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>Name</FormLabel>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Description</FormLabel>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Status</FormLabel>
+                <Select
+                  value={formData.status}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                >
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="archived">Archived</option>
+                </Select>
+              </FormControl>
+            </Stack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button colorScheme="blue" type="submit" isLoading={updateMutation.isPending}>
               Save
             </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };

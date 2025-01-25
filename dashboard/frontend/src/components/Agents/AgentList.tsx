@@ -28,7 +28,7 @@ import {
   Tooltip,
   Badge
 } from '@chakra-ui/react';
-import { FC } from 'react';
+import { FC, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Agent, agentApi } from '../../services/api';
 import { RepeatIcon, DeleteIcon, EditIcon } from '@chakra-ui/icons';
@@ -37,10 +37,15 @@ interface ApiResponse<T> {
   data: T;
 }
 
+interface Filters {
+  search?: string;
+  statuses?: string[];
+  capabilities?: string[];
+}
+
 const AgentList: FC = () => {
   const toast = useToast();
   const queryClient = useQueryClient();
-
   // Color mode values
   const cardBg = useColorModeValue('white', 'gray.700');
   const tableBg = useColorModeValue('white', 'gray.800');
@@ -61,6 +66,55 @@ const AgentList: FC = () => {
       return (response as unknown as ApiResponse<Agent[]>).data;
     }
   });
+
+  const [filters, setFilters] = useState<Filters>({});
+  const [filteredAgents, setFilteredAgents] = useState<Agent[]>(agents);
+  
+  // Listen for filter changes from sidebar
+  useEffect(() => {
+    const handleFilterChange = (event: CustomEvent<Filters>) => {
+      setFilters(event.detail);
+    };
+
+    window.addEventListener('filterChange', handleFilterChange as EventListener);
+    return () => {
+      window.removeEventListener('filterChange', handleFilterChange as EventListener);
+    };
+  }, []);
+
+  // Initialize filteredAgents with agents data
+  useEffect(() => {
+    setFilteredAgents(agents);
+  }, [agents]);
+
+  // Apply filters to agents
+  useEffect(() => {
+    if (!agents.length) return;
+
+    let result = [...agents];
+
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      result = result.filter(
+        agent =>
+          agent.name.toLowerCase().includes(searchTerm) ||
+          agent.description?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    if (filters.statuses?.length) {
+      result = result.filter(agent => filters.statuses?.includes(agent.status));
+    }
+
+    if (filters.capabilities?.length) {
+      result = result.filter(agent =>
+        agent.capabilities.some(cap => filters.capabilities?.includes(cap))
+      );
+    }
+
+    setFilteredAgents(result);
+  }, [agents, filters]);
+
 
   const deleteMutation = useMutation({
     mutationFn: async (agentId: string) => {
@@ -107,7 +161,7 @@ const AgentList: FC = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !filteredAgents) {
     return (
       <Card bg={cardBg} shadow="md" borderRadius="lg">
         <CardHeader>
@@ -186,7 +240,7 @@ const AgentList: FC = () => {
       </CardHeader>
       <Divider />
       <CardBody p={0}>
-        {agents.length === 0 ? (
+        {filteredAgents.length === 0 ? (
           <Center p={8}>
             <Text color={descriptionColor}>No agents available</Text>
           </Center>
@@ -202,7 +256,7 @@ const AgentList: FC = () => {
                 </Tr>
               </Thead>
               <Tbody>
-                {agents.map((agent: Agent) => (
+                {filteredAgents.map((agent: Agent) => (
                   <Tr 
                     key={agent.id}
                     _hover={{ bg: hoverBg }}
