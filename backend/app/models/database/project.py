@@ -1,5 +1,4 @@
-from sqlalchemy import Column, String, DateTime, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, String, DateTime, JSON, func
 from sqlalchemy.orm import relationship
 import uuid
 from typing import Dict, Any
@@ -13,8 +12,8 @@ class ProjectModel(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     status = Column(String, default="active")
-    project_metadata = Column(JSONB, default=dict, nullable=False)
-    agent_metadata = Column(JSONB, nullable=False, default=lambda: {
+    project_metadata = Column(JSON, default=dict, nullable=False)
+    agent_metadata = Column(JSON, nullable=False, default=lambda: {
         "assigned_agents": [],
         "capability_requirements": [],
         "operation_history": []

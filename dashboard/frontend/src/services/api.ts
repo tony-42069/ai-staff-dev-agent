@@ -28,13 +28,28 @@ export type CreateAgentDto = Omit<Agent, 'id' | 'created_at' | 'updated_at'>;
 export type UpdateAgentDto = Partial<CreateAgentDto>;
 
 // Project types
+export interface AgentOperation {
+  agent_id: string;
+  capability: string;
+  timestamp: string;
+  status: 'completed' | 'failed';
+  result?: Record<string, any>;
+  error?: string;
+}
+
+export interface ProjectAgentMetadata {
+  assigned_agents: string[];
+  capability_requirements: string[];
+  operation_history: AgentOperation[];
+}
+
 export interface Project {
   id: string;
   name: string;
   description?: string;
   status: 'active' | 'completed' | 'archived';
   project_metadata: Record<string, any>;
-  agent_id?: string;
+  agent_metadata: ProjectAgentMetadata;
   created_at: string;
   updated_at: string;
 }
@@ -106,6 +121,23 @@ const retryRequest = async <T>(
 };
 
 // Agent API
+export interface AssignToProjectRequest {
+  project_id: string;
+  capabilities: string[];
+}
+
+export interface ExecuteCapabilityRequest {
+  project_id: string;
+  capability: string;
+  parameters?: Record<string, any>;
+}
+
+export interface OperationResponse {
+  status: string;
+  message: string;
+  data?: Record<string, any>;
+}
+
 export const agentApi = {
   getAll: () => 
     retryRequest(() => api.get<ApiResponse<Agent[]>>('/agents')),
@@ -121,6 +153,15 @@ export const agentApi = {
   
   delete: (id: string) => 
     api.delete(`/agents/${id}`),
+
+  assignToProject: (agentId: string, data: AssignToProjectRequest) =>
+    api.post<ApiResponse<OperationResponse>>(`/agents/${agentId}/assign`, data),
+
+  executeCapability: (agentId: string, data: ExecuteCapabilityRequest) =>
+    api.post<ApiResponse<OperationResponse>>(`/agents/${agentId}/execute`, data),
+
+  getProjectOperations: (agentId: string, projectId: string) =>
+    retryRequest(() => api.get<ApiResponse<AgentOperation[]>>(`/agents/${agentId}/operations/${projectId}`)),
 };
 
 // Project API
