@@ -1,7 +1,10 @@
-import { Box, VStack, Input, IconButton, Flex, Text, useToast, Spinner } from '@chakra-ui/react'
+import { Box, Input, IconButton, Flex, Text, useToast, Spinner, Badge } from '@chakra-ui/react'
 import { ArrowUpIcon } from '@chakra-ui/icons'
-import { FC, useState, useRef, useEffect } from 'react'
+import { FC, useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { websocketService, WebSocketMessage } from '@/services/websocket'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import React from 'react'
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor'
 
 interface Message {
   id: string
@@ -9,52 +12,96 @@ interface Message {
   sender: 'user' | 'agent'
   timestamp: Date
   status?: 'sending' | 'sent' | 'error'
-  type?: 'message' | 'command' | 'status'
+  type?: 'message' | 'command' | 'status' | 'metrics'
 }
+
+interface MessageItemProps {
+  message: Message
+}
+
+const MessageItem = React.memo<MessageItemProps>(({ message }) => (
+  <Box
+    alignSelf={message.sender === 'user' ? 'flex-end' : 'flex-start'}
+    maxW="70%"
+    data-testid="message"
+    data-sender={message.sender}
+    data-type={message.type}
+  >
+    <Box
+      bg={message.sender === 'user' ? 'blue.500' : 'gray.100'}
+      color={message.sender === 'user' ? 'white' : 'black'}
+      p={3}
+      borderRadius="lg"
+      opacity={message.status === 'sending' ? 0.7 : 1}
+    >
+      <Text>{message.content}</Text>
+      {message.status === 'sending' && (
+        <Box mt={2} data-testid="message-status">
+          <Spinner size="xs" />
+        </Box>
+      )}
+    </Box>
+    <Flex fontSize="xs" color="gray.500" mt={1} alignItems="center">
+      <Text>{message.timestamp.toLocaleTimeString()}</Text>
+      {message.type === 'command' && (
+        <Text ml={2} color="blue.500">Command</Text>
+      )}
+      {message.status === 'error' && (
+        <Text ml={2} color="red.500">Error</Text>
+      )}
+    </Flex>
+  </Box>
+));
 
 const Chat: FC = () => {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isConnected, setIsConnected] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const parentRef = useRef<HTMLDivElement>(null)
   const toast = useToast()
+  const { startMeasure, endMeasure, measureMessageLatency, getMetrics } = usePerformanceMonitor('Chat')
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const rowVirtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100,
+    overscan: 5
+  })
+
+  const handleMessage = useCallback((wsMessage: WebSocketMessage) => {
+    const startTime = performance.now()
+    
+    if (wsMessage.type === 'status' && wsMessage.content.includes('typing')) {
+      setIsTyping(true)
+      return
+    }
+
+    setIsTyping(false)
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      content: wsMessage.content,
+      sender: wsMessage.sender as 'user' | 'agent',
+      timestamp: new Date(wsMessage.timestamp),
+      type: wsMessage.type === 'metrics' ? undefined : wsMessage.type,
+      status: 'sent'
+    }
+    
+    if (wsMessage.type === 'status') {
+      setMessages(prev => prev.map(msg => 
+        msg.status === 'sending' ? { ...msg, status: 'sent' } : msg
+      ))
+    } else {
+      setMessages(prev => [...prev, newMessage])
+    }
+
+    measureMessageLatency(startTime)
+  }, [measureMessageLatency])
 
   useEffect(() => {
-    // Connect to WebSocket when component mounts
+    startMeasure()
     websocketService.connect()
-
-    // Set up event listeners
-    const messageUnsubscribe = websocketService.onMessage((wsMessage: WebSocketMessage) => {
-      if (wsMessage.type === 'status' && wsMessage.content.includes('typing')) {
-        setIsTyping(true)
-        return
-      }
-
-      setIsTyping(false)
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        content: wsMessage.content,
-        sender: wsMessage.sender,
-        timestamp: new Date(wsMessage.timestamp),
-        type: wsMessage.type,
-        status: 'sent'
-      }
-      
-      // Update status of pending messages
-      if (wsMessage.type === 'status') {
-        setMessages(prev => prev.map(msg => 
-          msg.status === 'sending' ? { ...msg, status: 'sent' } : msg
-        ))
-      } else {
-        setMessages(prev => [...prev, newMessage])
-      }
-    })
-
+    const messageUnsubscribe = websocketService.onMessage(handleMessage)
     const connectedUnsubscribe = websocketService.onConnected(() => {
       setIsConnected(true)
       toast({
@@ -89,21 +136,18 @@ const Chat: FC = () => {
       })
     })
 
-    // Clean up on unmount
     return () => {
       messageUnsubscribe()
       connectedUnsubscribe()
       disconnectedUnsubscribe()
       errorUnsubscribe()
       websocketService.disconnect()
+      endMeasure()
+      console.debug('Chat Performance Metrics:', getMetrics())
     }
-  }, [toast])
+  }, [toast, handleMessage, startMeasure, endMeasure, getMetrics])
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     if (!input.trim()) return
 
     try {
@@ -134,60 +178,52 @@ const Chat: FC = () => {
         isClosable: true,
       })
     }
-  }
+  }, [input, toast])
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
-  }
+  }, [handleSend])
+
+  const virtualItems = useMemo(() => rowVirtualizer.getVirtualItems(), [rowVirtualizer])
 
   return (
     <Box h="100%" display="flex" flexDirection="column">
-      <Box flex="1" overflowY="auto" p={4}>
-        <VStack spacing={4} align="stretch">
-          {messages.map(message => (
+      <Box 
+        ref={parentRef}
+        flex="1" 
+        overflowY="auto" 
+        p={4}
+      >
+        <Box
+          height={`${rowVirtualizer.getTotalSize()}px`}
+          width="100%"
+          position="relative"
+        >
+          {virtualItems.map((virtualRow: { index: number; size: number; start: number }) => (
             <Box
-              key={message.id}
-              alignSelf={message.sender === 'user' ? 'flex-end' : 'flex-start'}
-              maxW="70%"
+              key={messages[virtualRow.index].id}
+              position="absolute"
+              top={0}
+              left={0}
+              width="100%"
+              height={`${virtualRow.size}px`}
+              transform={`translateY(${virtualRow.start}px)`}
             >
-              <Box
-                bg={message.sender === 'user' ? 'blue.500' : 'gray.100'}
-                color={message.sender === 'user' ? 'white' : 'black'}
-                p={3}
-                borderRadius="lg"
-                opacity={message.status === 'sending' ? 0.7 : 1}
-              >
-                <Text>{message.content}</Text>
-                {message.status === 'sending' && (
-                  <Box mt={2}>
-                    <Spinner size="xs" />
-                  </Box>
-                )}
-              </Box>
-              <Flex fontSize="xs" color="gray.500" mt={1} alignItems="center">
-                <Text>{message.timestamp.toLocaleTimeString()}</Text>
-                {message.type === 'command' && (
-                  <Text ml={2} color="blue.500">Command</Text>
-                )}
-                {message.status === 'error' && (
-                  <Text ml={2} color="red.500">Error</Text>
-                )}
-              </Flex>
+              <MessageItem message={messages[virtualRow.index]} />
             </Box>
           ))}
-          {isTyping && (
-            <Box alignSelf="flex-start" maxW="70%">
-              <Box bg="gray.100" p={3} borderRadius="lg">
-                <Spinner size="xs" mr={2} />
-                <Text as="span">Agent is typing...</Text>
-              </Box>
+        </Box>
+        {isTyping && (
+          <Box alignSelf="flex-start" maxW="70%" data-testid="typing-indicator">
+            <Box bg="gray.100" p={3} borderRadius="lg">
+              <Spinner size="xs" mr={2} />
+              <Text as="span">Agent is typing...</Text>
             </Box>
-          )}
-          <div ref={messagesEndRef} />
-        </VStack>
+          </Box>
+        )}
       </Box>
       <Box p={4} borderTop="1px" borderColor="gray.200">
         <Flex>
@@ -198,6 +234,7 @@ const Chat: FC = () => {
             placeholder={isConnected ? "Type your message or /command..." : "Connecting..."}
             mr={2}
             isDisabled={!isConnected}
+            data-testid="message-input"
           />
           <IconButton
             colorScheme="blue"
@@ -205,8 +242,19 @@ const Chat: FC = () => {
             icon={<ArrowUpIcon />}
             onClick={handleSend}
             isDisabled={!isConnected}
+            data-testid="send-button"
           />
         </Flex>
+      </Box>
+      <Box 
+        position="absolute" 
+        top={2} 
+        right={2} 
+        data-testid="connection-status"
+      >
+        <Badge colorScheme={isConnected ? 'green' : 'orange'}>
+          {isConnected ? 'Connected' : 'Connecting...'}
+        </Badge>
       </Box>
     </Box>
   )

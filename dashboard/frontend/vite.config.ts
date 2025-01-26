@@ -4,6 +4,21 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    port: parseInt(process.env.VITE_PORT || '3000'),
+    open: true,
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_URL,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      '/ws': {
+        target: process.env.VITE_WS_URL,
+        ws: true
+      }
+    }
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

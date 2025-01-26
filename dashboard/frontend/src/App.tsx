@@ -1,12 +1,14 @@
 import { ChakraProvider, Box, Grid, Container, extendTheme } from '@chakra-ui/react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { FC } from 'react'
-import { Header, Sidebar } from '@/components/Layout'
-import QueryProvider from '@/providers/QueryProvider'
-import AgentsPage from '@/pages/Agents'
-import ProjectsPage from '@/pages/Projects'
-import ChatPage from '@/pages/Chat'
-import MonitoringPage from '@/pages/Monitoring'
+import { Header, Sidebar } from '@components/Layout'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import AgentsPage from '@pages/Agents'
+import ProjectsPage from '@pages/Projects'
+import ChatPage from '@pages/Chat'
+import MonitoringPage from '@pages/Monitoring'
+
+const queryClient = new QueryClient()
 
 // Custom theme
 const theme = extendTheme({
@@ -57,7 +59,7 @@ const theme = extendTheme({
 
 const App: FC = () => {
   return (
-    <QueryProvider>
+    <QueryClientProvider client={queryClient}>
       <ChakraProvider theme={theme}>
         <Router>
           <Box minHeight="100vh" width="100vw" overflow="hidden">
@@ -120,7 +122,7 @@ const App: FC = () => {
           </Box>
         </Router>
       </ChakraProvider>
-    </QueryProvider>
+    </QueryClientProvider>
   )
 }
 

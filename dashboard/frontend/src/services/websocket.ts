@@ -24,9 +24,9 @@ class EventEmitter {
 }
 
 interface WebSocketMessage {
-  type: 'message' | 'command' | 'status'
+  type: 'message' | 'command' | 'status' | 'metrics'
   content: string
-  sender: 'user' | 'agent'
+  sender: 'user' | 'agent' | string
   timestamp: string
 }
 
@@ -36,8 +36,13 @@ class WebSocketService {
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
   private reconnectTimeout = 3000
+  private clientId: string
+  private url: string
 
-  constructor(private url: string = 'ws://localhost:8000/ws/chat') {}
+  constructor() {
+    this.clientId = crypto.randomUUID()
+    this.url = `${import.meta.env.VITE_WS_URL || 'ws://localhost:8000'}/ws/chat/${this.clientId}`
+  }
 
   connect() {
     try {
