@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -8,6 +8,8 @@ from app.models.agent import Agent, AgentCreate, AgentUpdate
 from app.models.database.agent import AgentModel
 from app.models.database.project import ProjectModel
 from app.core.intelligence import CoreIntelligence
+from app.models.operations import Operation, OperationPriority, OperationStatus
+from app.services.operation_queue import queue as operation_queue
 
 class AgentServiceError(Exception):
     """Base exception for agent service errors"""
@@ -165,9 +167,10 @@ class AgentService:
         agent_id: str,
         project_id: str,
         capability: str,
-        params: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
-        """Execute an agent capability on a project"""
+        params: Dict[str, Any] = None,
+        priority: OperationPriority = OperationPriority.NORMAL
+    ) -> str:
+        """Queue an agent capability execution as an operation"""
         if not self.core:
             raise ValueError("CoreIntelligence not initialized")
             
@@ -184,27 +187,44 @@ class AgentService:
             if project not in agent.projects:
                 raise ValueError(f"Agent {agent_id} not assigned to project {project_id}")
             
-            try:
-                # Execute capability via core intelligence
-                result = await self.core.execute_capability(
-                    capability,
-                    {
-                        "agent_id": agent_id,
-                        "project_id": project_id,
-                        "parameters": params or {}
-                    }
-                )
-                
-                # Record successful operation
-                project.add_operation(agent_id, capability, result)
-                await self.db.commit()
-                return result
-                
-            except Exception as e:
-                # Record failed operation
-                project.add_failed_operation(agent_id, capability, str(e))
-                await self.db.commit()
-                raise
+            # Create operation
+            operation = Operation(
+                id=str(uuid4()),
+                project_id=project_id,
+                agent_id=agent_id,
+                capability=capability,
+                status=OperationStatus.QUEUED,
+                priority=priority,
+                metadata={
+                    "parameters": params or {},
+                    "agent_name": agent.name,
+                    "project_name": project.name
+                }
+            )
+            
+            # Add to queue
+            operation_id = await operation_queue.add_operation(operation)
+            
+            # Record operation in project
+            project.add_operation(agent_id, capability, {"operation_id": operation_id})
+            await self.db.commit()
+            
+            return operation_id
+
+    async def _execute_operation(self, operation: Operation) -> Dict[str, Any]:
+        """Internal method to execute an operation via core intelligence"""
+        try:
+            result = await self.core.execute_capability(
+                operation.capability,
+                {
+                    "agent_id": operation.agent_id,
+                    "project_id": operation.project_id,
+                    "parameters": operation.metadata.get("parameters", {})
+                }
+            )
+            return result
+        except Exception as e:
+            raise ValueError(f"Operation execution failed: {str(e)}")
 
     async def get_project_operations(
         self,
@@ -213,7 +233,17 @@ class AgentService:
     ) -> List[Dict[str, Any]]:
         """Get all operations performed by an agent on a project"""
         agent = await self._get_agent(agent_id)
-        return agent.get_project_operations(project_id)
+        operations = agent.get_project_operations(project_id)
+        
+        # Enrich with current operation status if available
+        for op in operations:
+            if "operation_id" in op:
+                status = await operation_queue.get_operation_status(op["operation_id"])
+                if status:
+                    op["status"] = status.status
+                    op["progress"] = status.progress
+        
+        return operations
 
     async def _get_agent(self, agent_id: str) -> AgentModel:
         """Get agent by ID or raise error"""

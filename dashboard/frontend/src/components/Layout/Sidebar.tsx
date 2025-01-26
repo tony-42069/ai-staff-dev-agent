@@ -1,5 +1,5 @@
 import { Box, VStack, Link, Icon } from '@chakra-ui/react'
-import { FiHome, FiUsers, FiFolder, FiSettings, FiMessageSquare } from 'react-icons/fi'
+import { FiHome, FiUsers, FiFolder, FiSettings, FiMessageSquare, FiActivity } from 'react-icons/fi'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { FC, useState } from 'react'
 import SidebarFilters from './SidebarFilters'
@@ -69,6 +69,9 @@ const Sidebar: FC = () => {
         </NavItem>
         <NavItem to="/chat" icon={FiMessageSquare}>
           Chat
+        </NavItem>
+        <NavItem to="/monitoring" icon={FiActivity}>
+          Monitoring
         </NavItem>
         <NavItem to="/settings" icon={FiSettings}>
           Settings

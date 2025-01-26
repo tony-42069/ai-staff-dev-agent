@@ -6,6 +6,7 @@ import QueryProvider from '@/providers/QueryProvider'
 import AgentsPage from '@/pages/Agents'
 import ProjectsPage from '@/pages/Projects'
 import ChatPage from '@/pages/Chat'
+import MonitoringPage from '@/pages/Monitoring'
 
 // Custom theme
 const theme = extendTheme({
@@ -111,6 +112,7 @@ const App: FC = () => {
                     <Route path="/agents" element={<AgentsPage />} />
                     <Route path="/projects" element={<ProjectsPage />} />
                     <Route path="/chat" element={<ChatPage />} />
+                    <Route path="/monitoring" element={<MonitoringPage />} />
                   </Routes>
                 </Container>
               </Box>

@@ -1,6 +1,7 @@
 - capabilities:
   - project_generation
   - code_generation
+  - code_analyzer
   environment:
     DEVELOPMENT_MODE: 'true'
     PYTHON_VERSION: '3.9'
