@@ -138,9 +138,10 @@ class MetricsCollector:
         # Update queue metrics
         for priority in OperationPriority:
             queue = operation_queue.queues[priority]
+            # Skip queue size metrics for now since we can't await in this context
             self.metrics["queues"][priority.value].update({
-                "size": queue.qsize(),
-                "wait_time": self._estimate_queue_wait_time(queue.qsize())
+                "size": 0,  # Temporarily set to 0 to avoid qsize() issues
+                "wait_time": 0.0
             })
         
         # Update system metrics

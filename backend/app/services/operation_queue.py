@@ -7,6 +7,7 @@ from ..models.operations import Operation, OperationStatus, OperationPriority
 from ..models.errors import ExecutionError
 from ..websockets.operations import manager as websocket_manager
 from .retry_handler import RetryHandler
+from .retry_strategies import RetryStrategies
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,8 @@ class OperationQueue:
                         context={
                             "queue": priority.value,
                             "attempt": operation.metadata.get("retry_count", 0) + 1
-                        }
+                        },
+                        queue=self  # Inject self as the queue
                     )
                     
                     # Broadcast current status

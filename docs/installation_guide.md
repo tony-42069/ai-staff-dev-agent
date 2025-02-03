@@ -107,3 +107,48 @@ After installation:
 2. Configure initial agent capabilities
 3. Run system verification tests
 4. Begin monitoring system performance
+
+## Performance Monitoring Setup
+
+### Prerequisites
+- Node.js 16 or later
+- React Developer Tools browser extension (recommended)
+
+### Setting Up Performance Monitoring
+
+1. Install required dependencies:
+```bash
+npm install @tanstack/react-virtual
+```
+
+2. Configure Performance Monitoring:
+```typescript
+// In your component:
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+
+// Initialize monitoring
+const { startMeasure, endMeasure, measureMessageLatency, getMetrics } = usePerformanceMonitor('ComponentName');
+```
+
+3. Enable Performance Tracking:
+- Open browser DevTools
+- Go to Performance tab
+- Enable performance monitoring
+- Check console for performance metrics logs
+
+### Verifying Performance Monitoring
+
+1. Check component performance:
+```typescript
+// Performance metrics will be logged on component unmount
+console.debug('Performance Metrics:', getMetrics());
+```
+
+2. Monitor WebSocket latency:
+```typescript
+// In message handler:
+const startTime = performance.now();
+measureMessageLatency(startTime);
+```
+
+3. View real-time metrics in browser console

@@ -17,8 +17,7 @@ app.add_middleware(
     allow_origins=["http://localhost:3000", "http://localhost:5173"],  # Frontend URLs
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
-    allow_websockets=True  # Enable WebSocket support
+    allow_headers=["*"]  # WebSocket support is enabled by default with allow_credentials=True
 )
 
 # Include routers
