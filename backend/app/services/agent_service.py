@@ -1,283 +1,310 @@
-from typing import List, Optional, Dict, Any
-from uuid import UUID, uuid4
+"""Service for managing agent operations and capabilities."""
+import asyncio
+from typing import Dict, List, Any, Optional, Set
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from app.models.agent import Agent, AgentCreate, AgentUpdate
-from app.models.database.agent import AgentModel
-from app.models.database.project import ProjectModel
-from app.core.intelligence import CoreIntelligence
-from app.models.operations import Operation, OperationPriority, OperationStatus
-from app.services.operation_queue import queue as operation_queue
+import logging
+import uuid
 
-class AgentServiceError(Exception):
-    """Base exception for agent service errors"""
-    pass
+from ..models.operations import (
+    Operation,
+    OperationStatus,
+    OperationType,
+    OperationPriority
+)
+from ..models.errors import (
+    OperationError,
+    AgentError,
+    RetryStrategy,
+    ErrorCode
+)
+from .operation_queue import queue_manager
+from .retry_handler import retry_handler
+from .metrics_collector import collector
 
-class AgentNotFoundError(AgentServiceError):
-    """Raised when an agent is not found"""
-    pass
-
-class DuplicateAgentError(AgentServiceError):
-    """Raised when attempting to create an agent with a duplicate name"""
-    pass
+logger = logging.getLogger(__name__)
 
 class AgentService:
-    VALID_CAPABILITIES = {
-        "code_review",
-        "testing",
-        "development",
-        "documentation",
-        "deployment"
-    }
+    """Service for managing agent operations."""
+    def __init__(self):
+        self.active_agents: Dict[str, Dict[str, Any]] = {}
+        self.agent_capabilities: Dict[str, Set[str]] = {}
+        self.agent_metrics: Dict[str, Dict[str, Any]] = {}
 
-    def __init__(self, db: AsyncSession, core: Optional[CoreIntelligence] = None):
-        self.db = db
-        self.core = core
-
-    def _validate_capabilities(self, capabilities: List[str]) -> None:
-        """Validate that all capabilities are recognized"""
-        invalid_capabilities = set(capabilities) - self.VALID_CAPABILITIES
-        if invalid_capabilities:
-            raise ValueError(f"Invalid capabilities: {', '.join(invalid_capabilities)}")
-
-    async def get_all(self) -> List[Agent]:
-        """Get all agents"""
-        result = await self.db.execute(select(AgentModel))
-        agents = result.scalars().all()
-        return [Agent.model_validate(agent) for agent in agents]
-
-    async def get_by_id(self, agent_id: str) -> Optional[Agent]:
-        """Get agent by ID"""
-        try:
-            UUID(agent_id)  # Validate UUID format
-        except ValueError:
-            raise ValueError(f"Invalid UUID format: {agent_id}")
-
-        result = await self.db.execute(
-            select(AgentModel).filter(AgentModel.id == agent_id)
-        )
-        agent = result.scalar_one_or_none()
-        
-        if not agent:
-            raise AgentNotFoundError(f"Agent with id {agent_id} not found")
-        
-        return Agent.model_validate(agent)
-
-    async def create(self, agent_create: AgentCreate) -> Agent:
-        """Create a new agent"""
-        # Validate capabilities
-        self._validate_capabilities(agent_create.capabilities)
-
-        # Check for duplicate name
-        existing = await self.db.execute(
-            select(AgentModel).filter(AgentModel.name == agent_create.name)
-        )
-        if existing.scalar_one_or_none():
-            raise DuplicateAgentError(f"Agent with name '{agent_create.name}' already exists")
-
-        try:
-            agent = AgentModel(**agent_create.model_dump())
-            self.db.add(agent)
-            await self.db.commit()
-            await self.db.refresh(agent)
-            return Agent.model_validate(agent)
-        except IntegrityError:
-            await self.db.rollback()
-            raise DuplicateAgentError(f"Agent with name '{agent_create.name}' already exists")
-
-    async def update(self, agent_id: str, agent_update: AgentUpdate) -> Agent:
-        """Update an agent"""
-        try:
-            UUID(agent_id)  # Validate UUID format
-        except ValueError:
-            raise ValueError(f"Invalid UUID format: {agent_id}")
-
-        # Start transaction
-        async with self.db.begin():
-            result = await self.db.execute(
-                select(AgentModel).filter(AgentModel.id == agent_id)
-            )
-            agent = result.scalar_one_or_none()
-            
-            if not agent:
-                raise AgentNotFoundError(f"Agent with id {agent_id} not found")
-
-            # Prepare update data
-            update_data = agent_update.model_dump(exclude_unset=True)
-            
-            # Validate capabilities if they're being updated
-            if "capabilities" in update_data:
-                self._validate_capabilities(update_data["capabilities"])
-
-            # Check name uniqueness if name is being updated
-            if "name" in update_data:
-                name_check = await self.db.execute(
-                    select(AgentModel).filter(
-                        AgentModel.name == update_data["name"],
-                        AgentModel.id != agent_id
-                    )
-                )
-                if name_check.scalar_one_or_none():
-                    raise DuplicateAgentError(f"Agent with name '{update_data['name']}' already exists")
-
-            # Update fields
-            for field, value in update_data.items():
-                setattr(agent, field, value)
-            
-            # Update timestamp
-            agent.updated_at = datetime.utcnow()
-            
-            await self.db.commit()
-            await self.db.refresh(agent)
-            return Agent.model_validate(agent)
-
-    async def assign_to_project(
+    async def register_agent(
         self,
         agent_id: str,
-        project_id: str,
-        capabilities: List[str]
-    ) -> Dict[str, Any]:
-        """Assign an agent to a project with specific capabilities"""
-        async with self.db.begin():
-            # Get agent and project
-            agent = await self._get_agent(agent_id)
-            project = await self._get_project(project_id)
-            
-            # Validate capabilities
-            self._validate_capabilities(capabilities)
-            for capability in capabilities:
-                if not agent.has_capability(capability):
-                    raise ValueError(f"Agent {agent_id} does not have capability: {capability}")
-            
-            # Add agent to project
-            if project not in agent.projects:
-                agent.projects.append(project)
-            project.add_agent(agent_id, capabilities)
-            
-            await self.db.commit()
-            return {
-                "status": "success",
-                "message": f"Agent {agent_id} assigned to project {project_id}"
+        capabilities: List[str],
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Register a new agent with capabilities."""
+        try:
+            if agent_id in self.active_agents:
+                raise AgentError(
+                    f"Agent {agent_id} already registered",
+                    agent_id=agent_id
+                )
+
+            self.active_agents[agent_id] = {
+                "registered_at": datetime.utcnow(),
+                "last_heartbeat": datetime.utcnow(),
+                "status": "active",
+                "metadata": metadata or {}
             }
 
-    async def execute_capability(
+            self.agent_capabilities[agent_id] = set(capabilities)
+            self.agent_metrics[agent_id] = {
+                "operations_completed": 0,
+                "operations_failed": 0,
+                "total_execution_time": 0.0,
+                "capability_usage": {}
+            }
+
+            logger.info(
+                "Agent %s registered with capabilities: %s",
+                agent_id,
+                capabilities
+            )
+
+            # Record metrics
+            collector.record_metric(
+                "agent",
+                f"registration.{agent_id}",
+                {
+                    "capabilities": capabilities,
+                    "metadata": metadata
+                }
+            )
+
+        except Exception as e:
+            logger.error("Failed to register agent: %s", e)
+            raise
+
+    async def deregister_agent(self, agent_id: str) -> None:
+        """Deregister an agent."""
+        try:
+            if agent_id not in self.active_agents:
+                raise AgentError(
+                    f"Agent {agent_id} not registered",
+                    agent_id=agent_id
+                )
+
+            # Cancel any active operations
+            active_ops = [
+                op for op in queue_manager.active_operations.values()
+                if op.agent_id == agent_id
+            ]
+            for op in active_ops:
+                await self.cancel_operation(op.id)
+
+            # Clean up agent data
+            self.active_agents.pop(agent_id)
+            self.agent_capabilities.pop(agent_id)
+            self.agent_metrics.pop(agent_id)
+
+            logger.info("Agent %s deregistered", agent_id)
+
+            # Record metrics
+            collector.record_metric(
+                "agent",
+                f"deregistration.{agent_id}",
+                {}
+            )
+
+        except Exception as e:
+            logger.error("Failed to deregister agent: %s", e)
+            raise
+
+    async def update_agent_heartbeat(self, agent_id: str) -> None:
+        """Update agent heartbeat timestamp."""
+        if agent_id in self.active_agents:
+            self.active_agents[agent_id]["last_heartbeat"] = datetime.utcnow()
+
+    async def check_agent_health(self) -> None:
+        """Check health of all registered agents."""
+        while True:
+            try:
+                current_time = datetime.utcnow()
+                for agent_id, data in list(self.active_agents.items()):
+                    last_heartbeat = data["last_heartbeat"]
+                    if (current_time - last_heartbeat).total_seconds() > 60:
+                        # Agent hasn't sent heartbeat in over a minute
+                        data["status"] = "unavailable"
+                        logger.warning("Agent %s appears unavailable", agent_id)
+
+                        # Record metrics
+                        collector.record_metric(
+                            "agent",
+                            f"health.{agent_id}",
+                            {"status": "unavailable"}
+                        )
+
+                await asyncio.sleep(30)  # Check every 30 seconds
+
+            except Exception as e:
+                logger.error("Error checking agent health: %s", e)
+                await asyncio.sleep(5)
+
+    async def execute_operation(
         self,
-        agent_id: str,
         project_id: str,
         capability: str,
-        params: Dict[str, Any] = None,
-        priority: OperationPriority = OperationPriority.NORMAL
-    ) -> str:
-        """Queue an agent capability execution as an operation"""
-        if not self.core:
-            raise ValueError("CoreIntelligence not initialized")
-            
-        async with self.db.begin():
-            # Get agent and project
-            agent = await self._get_agent(agent_id)
-            project = await self._get_project(project_id)
-            
-            # Validate capability
-            if not agent.has_capability(capability):
-                raise ValueError(f"Agent {agent_id} does not have capability: {capability}")
-            
-            # Validate assignment
-            if project not in agent.projects:
-                raise ValueError(f"Agent {agent_id} not assigned to project {project_id}")
-            
+        params: Dict[str, Any],
+        priority: OperationPriority = OperationPriority.NORMAL,
+        operation_type: Optional[OperationType] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Operation:
+        """Execute an operation using an appropriate agent."""
+        try:
+            # Find suitable agent
+            agent_id = await self._find_agent_for_capability(capability)
+            if not agent_id:
+                raise OperationError(
+                    f"No agent available for capability: {capability}",
+                    code=ErrorCode.CAPABILITY_NOT_FOUND
+                )
+
             # Create operation
             operation = Operation(
-                id=str(uuid4()),
+                id=str(uuid.uuid4()),
                 project_id=project_id,
                 agent_id=agent_id,
+                type=operation_type,
                 capability=capability,
                 status=OperationStatus.QUEUED,
                 priority=priority,
-                metadata={
-                    "parameters": params or {},
-                    "agent_name": agent.name,
-                    "project_name": project.name
-                }
+                metadata=metadata or {}
             )
-            
+
             # Add to queue
-            operation_id = await operation_queue.add_operation(operation)
-            
-            # Record operation in project
-            project.add_operation(agent_id, capability, {"operation_id": operation_id})
-            await self.db.commit()
-            
-            return operation_id
+            await queue_manager.enqueue_operation(operation)
 
-    async def _execute_operation(self, operation: Operation) -> Dict[str, Any]:
-        """Internal method to execute an operation via core intelligence"""
-        try:
-            result = await self.core.execute_capability(
-                operation.capability,
+            logger.info(
+                "Operation %s queued for agent %s",
+                operation.id,
+                agent_id
+            )
+
+            # Record metrics
+            collector.record_metric(
+                "operation",
+                f"queued.{operation.id}",
                 {
-                    "agent_id": operation.agent_id,
-                    "project_id": operation.project_id,
-                    "parameters": operation.metadata.get("parameters", {})
+                    "project_id": project_id,
+                    "agent_id": agent_id,
+                    "capability": capability,
+                    "priority": priority.value
                 }
             )
-            return result
-        except Exception as e:
-            raise ValueError(f"Operation execution failed: {str(e)}")
 
-    async def get_project_operations(
+            return operation
+
+        except Exception as e:
+            logger.error("Failed to execute operation: %s", e)
+            raise
+
+    async def cancel_operation(self, operation_id: str) -> None:
+        """Cancel an operation."""
+        try:
+            operation = queue_manager.active_operations.get(operation_id)
+            if not operation:
+                raise OperationError(
+                    f"Operation {operation_id} not found",
+                    code=ErrorCode.NOT_FOUND
+                )
+
+            operation.status = OperationStatus.CANCELLED
+            logger.info("Operation %s cancelled", operation_id)
+
+            # Record metrics
+            collector.record_metric(
+                "operation",
+                f"cancelled.{operation_id}",
+                {"reason": "user_requested"}
+            )
+
+        except Exception as e:
+            logger.error("Failed to cancel operation: %s", e)
+            raise
+
+    async def get_agent_metrics(self, agent_id: str) -> Dict[str, Any]:
+        """Get metrics for an agent."""
+        if agent_id not in self.agent_metrics:
+            raise AgentError(
+                f"Agent {agent_id} not found",
+                agent_id=agent_id
+            )
+
+        metrics = self.agent_metrics[agent_id].copy()
+        
+        # Add current status
+        if agent_id in self.active_agents:
+            metrics["status"] = self.active_agents[agent_id]["status"]
+            metrics["uptime"] = (
+                datetime.utcnow() - 
+                self.active_agents[agent_id]["registered_at"]
+            ).total_seconds()
+
+        # Add active operations
+        active_ops = [
+            op for op in queue_manager.active_operations.values()
+            if op.agent_id == agent_id
+        ]
+        metrics["active_operations"] = len(active_ops)
+
+        return metrics
+
+    async def _find_agent_for_capability(
+        self,
+        capability: str
+    ) -> Optional[str]:
+        """Find an appropriate agent for a capability."""
+        available_agents = [
+            agent_id
+            for agent_id, data in self.active_agents.items()
+            if (
+                data["status"] == "active"
+                and capability in self.agent_capabilities[agent_id]
+            )
+        ]
+
+        if not available_agents:
+            return None
+
+        # Simple round-robin selection for now
+        # Could be enhanced with load balancing, performance metrics, etc.
+        return available_agents[0]
+
+    async def _update_agent_metrics(
         self,
         agent_id: str,
-        project_id: str
-    ) -> List[Dict[str, Any]]:
-        """Get all operations performed by an agent on a project"""
-        agent = await self._get_agent(agent_id)
-        operations = agent.get_project_operations(project_id)
+        operation: Operation,
+        execution_time: float
+    ) -> None:
+        """Update metrics for an agent."""
+        if agent_id not in self.agent_metrics:
+            return
+
+        metrics = self.agent_metrics[agent_id]
         
-        # Enrich with current operation status if available
-        for op in operations:
-            if "operation_id" in op:
-                status = await operation_queue.get_operation_status(op["operation_id"])
-                if status:
-                    op["status"] = status.status
-                    op["progress"] = status.progress
-        
-        return operations
+        if operation.status == OperationStatus.COMPLETED:
+            metrics["operations_completed"] += 1
+        elif operation.status == OperationStatus.FAILED:
+            metrics["operations_failed"] += 1
 
-    async def _get_agent(self, agent_id: str) -> AgentModel:
-        """Get agent by ID or raise error"""
-        try:
-            UUID(agent_id)
-        except ValueError:
-            raise ValueError(f"Invalid UUID format: {agent_id}")
-            
-        result = await self.db.execute(
-            select(AgentModel).filter(AgentModel.id == agent_id)
+        metrics["total_execution_time"] += execution_time
+
+        # Update capability usage
+        if operation.capability:
+            if operation.capability not in metrics["capability_usage"]:
+                metrics["capability_usage"][operation.capability] = 0
+            metrics["capability_usage"][operation.capability] += 1
+
+        # Record metrics
+        collector.record_metric(
+            "agent",
+            f"metrics.{agent_id}",
+            metrics
         )
-        agent = result.scalar_one_or_none()
-        if not agent:
-            raise AgentNotFoundError(f"Agent with id {agent_id} not found")
-        return agent
 
-    async def _get_project(self, project_id: str) -> ProjectModel:
-        """Get project by ID or raise error"""
-        try:
-            UUID(project_id)
-        except ValueError:
-            raise ValueError(f"Invalid UUID format: {project_id}")
-            
-        result = await self.db.execute(
-            select(ProjectModel).filter(ProjectModel.id == project_id)
-        )
-        project = result.scalar_one_or_none()
-        if not project:
-            raise ValueError(f"Project with id {project_id} not found")
-        return project
-
-    async def delete(self, agent_id: str) -> bool:
-        """Delete an agent"""
-        agent = await self._get_agent(agent_id)
-        await self.db.delete(agent)
-        await self.db.commit()
-        return True
+# Global agent service instance
+agent_service = AgentService()

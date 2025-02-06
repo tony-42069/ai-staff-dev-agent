@@ -1,185 +1,187 @@
-import axios, { AxiosError, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
 
-const BASE_URL = 'http://localhost:8000/api/v1';
-
-// Error response type
-export interface ApiError {
-  detail: string;
-  validation_errors?: Record<string, string>;
+interface ApiError {
+  code: string;
+  message: string;
+  details?: any;
 }
 
-// API response type
-export interface ApiResponse<T> {
-  data: T;
-}
+class ApiService {
+  private client: AxiosInstance;
+  private baseURL: string;
 
-// Agent types
-export interface Agent {
-  id: string;
-  name: string;
-  description: string;
-  capabilities: string[];
-  status: 'idle' | 'busy' | 'error';
-  created_at: string;
-  updated_at: string;
-}
+  constructor() {
+    this.baseURL = import.meta.env.VITE_API_URL || '/api/v1';
+    this.client = axios.create({
+      baseURL: this.baseURL,
+      timeout: 30000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
-export type CreateAgentDto = Omit<Agent, 'id' | 'created_at' | 'updated_at'>;
-export type UpdateAgentDto = Partial<CreateAgentDto>;
-
-// Project types
-export interface AgentOperation {
-  agent_id: string;
-  capability: string;
-  timestamp: string;
-  status: 'completed' | 'failed';
-  result?: Record<string, any>;
-  error?: string;
-}
-
-export interface ProjectAgentMetadata {
-  assigned_agents: string[];
-  capability_requirements: string[];
-  operation_history: AgentOperation[];
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  status: 'active' | 'completed' | 'archived';
-  project_metadata: Record<string, any>;
-  agent_metadata: ProjectAgentMetadata;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateProjectDto {
-  name: string;
-  description?: string;
-  status?: 'active' | 'completed' | 'archived';
-  project_metadata?: Record<string, any>;
-  agent_id?: string;
-}
-
-export interface UpdateProjectDto {
-  name?: string;
-  description?: string;
-  status?: 'active' | 'completed' | 'archived';
-  project_metadata?: Record<string, any>;
-  agent_id?: string;
-}
-
-// Create axios instance with configuration
-export const api = axios.create({
-  baseURL: BASE_URL,
-  timeout: 10000, // 10 seconds
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add response interceptor for consistent error handling
-api.interceptors.response.use(
-  (response: AxiosResponse) => response.data,
-  (error: AxiosError<ApiError>) => {
-    // Handle network errors
-    if (!error.response) {
-      return Promise.reject({
-        detail: 'Network error. Please check your connection.',
-      });
-    }
-
-    // Handle timeout errors
-    if (error.code === 'ECONNABORTED') {
-      return Promise.reject({
-        detail: 'Request timed out. Please try again.',
-      });
-    }
-
-    // Handle API errors
-    const errorResponse = error.response.data;
-    return Promise.reject(errorResponse);
+    this.setupInterceptors();
   }
-);
 
-// Retry configuration
-const retryRequest = async <T>(
-  request: () => Promise<T>,
-  retries: number = 3,
-  delay: number = 1000
-): Promise<T> => {
-  try {
-    return await request();
-  } catch (error) {
-    if (retries === 0 || (error as AxiosError).response?.status === 422) {
+  private setupInterceptors() {
+    // Request interceptor
+    this.client.interceptors.request.use(
+      (config) => {
+        // Add auth token if available
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    // Response interceptor
+    this.client.interceptors.response.use(
+      (response) => response,
+      (error: AxiosError) => {
+        if (error.response?.status === 401) {
+          // Handle unauthorized access
+          localStorage.removeItem('auth_token');
+          window.location.href = '/login';
+        }
+        return Promise.reject(this.handleError(error));
+      }
+    );
+  }
+
+  private handleError(error: AxiosError): ApiError {
+    if (error.response) {
+      // Server responded with error
+      return {
+        code: error.response.data.code || 'SERVER_ERROR',
+        message: error.response.data.message || 'Server error occurred',
+        details: error.response.data.details,
+      };
+    } else if (error.request) {
+      // Request made but no response
+      return {
+        code: 'NETWORK_ERROR',
+        message: 'Network error occurred',
+      };
+    } else {
+      // Error setting up request
+      return {
+        code: 'REQUEST_ERROR',
+        message: error.message,
+      };
+    }
+  }
+
+  async get<T = any>(url: string, params?: any): Promise<AxiosResponse<T>> {
+    try {
+      return await this.client.get<T>(url, { params });
+    } catch (error) {
       throw error;
     }
-    await new Promise(resolve => setTimeout(resolve, delay));
-    return retryRequest(request, retries - 1, delay * 2);
   }
-};
 
-// Agent API
-export interface AssignToProjectRequest {
-  project_id: string;
-  capabilities: string[];
+  async post<T = any>(url: string, data?: any): Promise<AxiosResponse<T>> {
+    try {
+      return await this.client.post<T>(url, data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async put<T = any>(url: string, data?: any): Promise<AxiosResponse<T>> {
+    try {
+      return await this.client.put<T>(url, data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async delete<T = any>(url: string): Promise<AxiosResponse<T>> {
+    try {
+      return await this.client.delete<T>(url);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async patch<T = any>(url: string, data?: any): Promise<AxiosResponse<T>> {
+    try {
+      return await this.client.patch<T>(url, data);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Specialized API methods for agents
+  async getAgents() {
+    return this.get('/agents');
+  }
+
+  async getAgentMetrics(agentId: string) {
+    return this.get(`/agents/${agentId}/metrics`);
+  }
+
+  async getAgentOperations(agentId: string) {
+    return this.get(`/agents/${agentId}/operations`);
+  }
+
+  async scheduleAgentMaintenance(agentId: string, window: {
+    type: string;
+    start_time: string;
+    end_time: string;
+  }) {
+    return this.post(`/agents/${agentId}/maintenance`, window);
+  }
+
+  // Specialized API methods for operations
+  async getOperations(params?: {
+    status?: string;
+    agent_id?: string;
+    project_id?: string;
+  }) {
+    return this.get('/operations', params);
+  }
+
+  async cancelOperation(operationId: string) {
+    return this.post(`/operations/${operationId}/cancel`);
+  }
+
+  async retryOperation(operationId: string) {
+    return this.post(`/operations/${operationId}/retry`);
+  }
+
+  // Specialized API methods for metrics
+  async getSystemMetrics() {
+    return this.get('/metrics/system');
+  }
+
+  async getMetricsHistory(
+    metricType: string,
+    params?: {
+      start_time?: string;
+      end_time?: string;
+      interval?: string;
+    }
+  ) {
+    return this.get(`/metrics/history/${metricType}`, params);
+  }
+
+  // Specialized API methods for projects
+  async getProjects() {
+    return this.get('/projects');
+  }
+
+  async getProjectMetrics(projectId: string) {
+    return this.get(`/projects/${projectId}/metrics`);
+  }
+
+  async getProjectOperations(projectId: string) {
+    return this.get(`/projects/${projectId}/operations`);
+  }
 }
 
-export interface ExecuteCapabilityRequest {
-  project_id: string;
-  capability: string;
-  parameters?: Record<string, any>;
-}
-
-export interface OperationResponse {
-  status: string;
-  message: string;
-  data?: Record<string, any>;
-}
-
-export const agentApi = {
-  getAll: () => 
-    retryRequest(() => api.get<ApiResponse<Agent[]>>('/agents')),
-  
-  getById: (id: string) => 
-    retryRequest(() => api.get<ApiResponse<Agent>>(`/agents/${id}`)),
-  
-  create: (data: CreateAgentDto) => 
-    api.post<ApiResponse<Agent>>('/agents', data),
-  
-  update: (id: string, data: UpdateAgentDto) => 
-    api.put<ApiResponse<Agent>>(`/agents/${id}`, data),
-  
-  delete: (id: string) => 
-    api.delete(`/agents/${id}`),
-
-  assignToProject: (agentId: string, data: AssignToProjectRequest) =>
-    api.post<ApiResponse<OperationResponse>>(`/agents/${agentId}/assign`, data),
-
-  executeCapability: (agentId: string, data: ExecuteCapabilityRequest) =>
-    api.post<ApiResponse<OperationResponse>>(`/agents/${agentId}/execute`, data),
-
-  getProjectOperations: (agentId: string, projectId: string) =>
-    retryRequest(() => api.get<ApiResponse<AgentOperation[]>>(`/agents/${agentId}/operations/${projectId}`)),
-};
-
-// Project API
-export const projectApi = {
-  getAll: () => 
-    retryRequest(() => api.get<ApiResponse<Project[]>>('/projects')),
-  
-  getById: (id: string) => 
-    retryRequest(() => api.get<ApiResponse<Project>>(`/projects/${id}`)),
-  
-  create: (data: CreateProjectDto) => 
-    api.post<ApiResponse<Project>>('/projects', data),
-  
-  update: (id: string, data: UpdateProjectDto) => 
-    api.patch<ApiResponse<Project>>(`/projects/${id}`, data),
-  
-  delete: (id: string) => 
-    api.delete(`/projects/${id}`),
-};
-
-export default api;
+export const api = new ApiService();

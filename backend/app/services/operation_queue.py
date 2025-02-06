@@ -1,204 +1,317 @@
+"""Service for managing operation queues and execution."""
 import asyncio
+from typing import Dict, List, Optional, Any, Callable, Awaitable
+from datetime import datetime, timedelta
 import logging
-from typing import Dict, Optional
-from uuid import uuid4
+from collections import defaultdict
+import heapq
 
-from ..models.operations import Operation, OperationStatus, OperationPriority
-from ..models.errors import ExecutionError
-from ..websockets.operations import manager as websocket_manager
-from .retry_handler import RetryHandler
-from .retry_strategies import RetryStrategies
+from ..models.operations import (
+    Operation,
+    OperationStatus,
+    OperationPriority,
+    OperationQueue,
+    OperationStats
+)
+from ..models.errors import (
+    OperationError,
+    QueueError,
+    TimeoutError,
+    RetryStrategy
+)
 
 logger = logging.getLogger(__name__)
 
-class OperationQueue:
-    def __init__(self, max_workers: int = 5):
-        self.queues = {
-            OperationPriority.HIGH: asyncio.Queue(),
-            OperationPriority.NORMAL: asyncio.Queue(),
-            OperationPriority.LOW: asyncio.Queue()
-        }
-        self.active_operations: Dict[str, Operation] = {}
-        self.max_workers = max_workers
-        self.workers: Dict[str, asyncio.Task] = {}
-        self.running = False
+class PriorityQueue:
+    """Priority queue implementation for operations."""
+    def __init__(self):
+        self.queue: List[tuple[int, datetime, Operation]] = []
+        self.entry_count = 0
 
-    async def add_operation(self, operation: Operation) -> str:
-        """Add a new operation to the appropriate priority queue"""
-        if not operation.id:
-            operation.id = str(uuid4())
-        
-        operation.status = OperationStatus.QUEUED
-        await self.queues[operation.priority].put(operation)
-        
-        # Notify subscribers about the queued operation
-        await websocket_manager.broadcast_status(
+    def push(self, operation: Operation) -> None:
+        """Push operation to queue with priority."""
+        priority = self._get_priority_value(operation.priority)
+        heapq.heappush(
+            self.queue,
+            (priority, operation.created_at, operation)
+        )
+        self.entry_count += 1
+
+    def pop(self) -> Optional[Operation]:
+        """Pop highest priority operation from queue."""
+        if not self.queue:
+            return None
+        return heapq.heappop(self.queue)[2]
+
+    def peek(self) -> Optional[Operation]:
+        """View next operation without removing it."""
+        if not self.queue:
+            return None
+        return self.queue[0][2]
+
+    def remove(self, operation_id: str) -> Optional[Operation]:
+        """Remove specific operation from queue."""
+        for i, (_, _, op) in enumerate(self.queue):
+            if op.id == operation_id:
+                return heapq.heappop(self.queue[i])[2]
+        return None
+
+    def _get_priority_value(self, priority: OperationPriority) -> int:
+        """Convert priority enum to numeric value."""
+        priority_values = {
+            OperationPriority.HIGH: 0,
+            OperationPriority.NORMAL: 1,
+            OperationPriority.LOW: 2
+        }
+        return priority_values.get(priority, 1)
+
+class OperationQueueManager:
+    """Manages operation queues and execution."""
+    def __init__(self):
+        self.queues: Dict[str, PriorityQueue] = defaultdict(PriorityQueue)
+        self.active_operations: Dict[str, Operation] = {}
+        self.operation_handlers: Dict[str, Callable[[Operation], Awaitable[Any]]] = {}
+        self.stats: Dict[str, OperationStats] = defaultdict(OperationStats)
+        self.max_concurrent = 10
+        self.default_timeout = 300  # 5 minutes
+
+    async def enqueue_operation(
+        self,
+        operation: Operation,
+        queue_name: str = "default"
+    ) -> None:
+        """Add operation to queue."""
+        try:
+            operation.status = OperationStatus.QUEUED
+            self.queues[queue_name].push(operation)
+            logger.info(
+                "Operation %s added to queue %s",
+                operation.id,
+                queue_name
+            )
+        except Exception as e:
+            logger.error("Failed to enqueue operation: %s", e)
+            raise QueueError(
+                f"Failed to enqueue operation: {str(e)}",
+                queue_name=queue_name
+            )
+
+    async def start_processing(self) -> None:
+        """Start processing operations from queues."""
+        while True:
+            try:
+                if len(self.active_operations) < self.max_concurrent:
+                    for queue_name, queue in self.queues.items():
+                        operation = queue.peek()
+                        if operation and operation.id not in self.active_operations:
+                            await self._process_operation(operation, queue_name)
+                await asyncio.sleep(0.1)  # Prevent CPU spinning
+            except Exception as e:
+                logger.error("Error in queue processing: %s", e)
+                await asyncio.sleep(1)  # Back off on error
+
+    async def _process_operation(
+        self,
+        operation: Operation,
+        queue_name: str
+    ) -> None:
+        """Process a single operation."""
+        try:
+            # Remove from queue and mark as running
+            self.queues[queue_name].pop()
+            operation.status = OperationStatus.RUNNING
+            operation.started_at = datetime.utcnow()
+            self.active_operations[operation.id] = operation
+
+            # Get handler for operation type
+            handler = self.operation_handlers.get(operation.capability)
+            if not handler:
+                raise OperationError(
+                    f"No handler found for capability: {operation.capability}"
+                )
+
+            # Execute with timeout
+            try:
+                async with asyncio.timeout(self.default_timeout):
+                    result = await handler(operation)
+                    operation.result = result
+                    operation.status = OperationStatus.COMPLETED
+            except asyncio.TimeoutError:
+                raise TimeoutError(
+                    "Operation timed out",
+                    timeout=self.default_timeout
+                )
+
+        except Exception as e:
+            logger.error(
+                "Operation %s failed: %s",
+                operation.id,
+                str(e)
+            )
+            operation.status = OperationStatus.FAILED
+            operation.error = str(e)
+            await self._handle_operation_error(operation, e)
+
+        finally:
+            operation.completed_at = datetime.utcnow()
+            self.active_operations.pop(operation.id, None)
+            await self._update_stats(operation, queue_name)
+
+    async def _handle_operation_error(
+        self,
+        operation: Operation,
+        error: Exception
+    ) -> None:
+        """Handle operation errors and retries."""
+        if isinstance(error, OperationError):
+            if error.retry_strategy != RetryStrategy.NO_RETRY:
+                await self._retry_operation(operation, error)
+        else:
+            # Default retry strategy for unknown errors
+            await self._retry_operation(
+                operation,
+                OperationError(
+                    str(error),
+                    retry_strategy=RetryStrategy.EXPONENTIAL_BACKOFF,
+                    max_retries=3
+                )
+            )
+
+    async def _retry_operation(
+        self,
+        operation: Operation,
+        error: OperationError
+    ) -> None:
+        """Retry failed operation based on strategy."""
+        retry_count = operation.metadata.get("retry_count", 0)
+        if retry_count >= error.max_retries:
+            logger.warning(
+                "Operation %s exceeded max retries",
+                operation.id
+            )
+            return
+
+        retry_count += 1
+        operation.metadata["retry_count"] = retry_count
+        operation.status = OperationStatus.RETRYING
+
+        # Calculate delay based on strategy
+        delay = self._calculate_retry_delay(
+            error.retry_strategy,
+            retry_count
+        )
+
+        logger.info(
+            "Retrying operation %s in %.2f seconds (attempt %d/%d)",
             operation.id,
-            {
-                "status": OperationStatus.QUEUED,
-                "progress": 0
+            delay,
+            retry_count,
+            error.max_retries
+        )
+
+        await asyncio.sleep(delay)
+        await self.enqueue_operation(operation)
+
+    def _calculate_retry_delay(
+        self,
+        strategy: RetryStrategy,
+        retry_count: int,
+        base_delay: float = 1.0
+    ) -> float:
+        """Calculate delay for retry based on strategy."""
+        if strategy == RetryStrategy.IMMEDIATE:
+            return 0
+        elif strategy == RetryStrategy.LINEAR_BACKOFF:
+            return base_delay * retry_count
+        elif strategy == RetryStrategy.EXPONENTIAL_BACKOFF:
+            return base_delay * (2 ** (retry_count - 1))
+        return base_delay
+
+    async def _update_stats(
+        self,
+        operation: Operation,
+        queue_name: str
+    ) -> None:
+        """Update operation statistics."""
+        stats = self.stats[queue_name]
+        stats.total_count += 1
+
+        if operation.status == OperationStatus.COMPLETED:
+            stats.success_count += 1
+        elif operation.status == OperationStatus.FAILED:
+            stats.failure_count += 1
+
+        if operation.completed_at and operation.started_at:
+            duration = (
+                operation.completed_at - operation.started_at
+            ).total_seconds()
+            
+            # Update duration stats
+            if stats.total_count == 1:
+                stats.min_duration = duration
+                stats.max_duration = duration
+            else:
+                stats.min_duration = min(stats.min_duration, duration)
+                stats.max_duration = max(stats.max_duration, duration)
+            
+            # Update moving average
+            stats.average_duration = (
+                (stats.average_duration * (stats.total_count - 1) + duration)
+                / stats.total_count
+            )
+
+        # Update error rate
+        stats.error_rate = (
+            stats.failure_count / stats.total_count
+            if stats.total_count > 0
+            else 0.0
+        )
+
+        # Calculate throughput (operations per minute)
+        window = timedelta(minutes=5)
+        recent_count = sum(
+            1 for op in self.active_operations.values()
+            if op.completed_at
+            and op.completed_at > datetime.utcnow() - window
+        )
+        stats.throughput = recent_count / 5.0  # ops/minute
+
+    def get_queue_status(self, queue_name: str) -> OperationQueue:
+        """Get current status of a queue."""
+        queue = self.queues.get(queue_name)
+        if not queue:
+            return OperationQueue(queue_name=queue_name)
+
+        active_count = sum(
+            1 for op in self.active_operations.values()
+            if op.metadata.get("queue_name") == queue_name
+        )
+
+        stats = self.stats.get(queue_name, OperationStats())
+
+        return OperationQueue(
+            queue_name=queue_name,
+            total_operations=queue.entry_count,
+            active_operations=active_count,
+            waiting_operations=len(queue.queue),
+            completed_operations=stats.success_count,
+            failed_operations=stats.failure_count,
+            average_wait_time=stats.average_duration,
+            average_processing_time=stats.average_duration,
+            metadata={
+                "error_rate": stats.error_rate,
+                "throughput": stats.throughput
             }
         )
-        
-        logger.info(f"Operation {operation.id} queued with priority {operation.priority}")
-        return operation.id
 
-    async def get_operation_status(self, operation_id: str) -> Optional[Operation]:
-        """Get the current status of an operation"""
-        return self.active_operations.get(operation_id)
+    def register_handler(
+        self,
+        capability: str,
+        handler: Callable[[Operation], Awaitable[Any]]
+    ) -> None:
+        """Register handler for operation type."""
+        self.operation_handlers[capability] = handler
+        logger.info("Registered handler for capability: %s", capability)
 
-    async def cancel_operation(self, operation_id: str) -> bool:
-        """Cancel an operation if it's still queued or running"""
-        if operation_id in self.active_operations:
-            operation = self.active_operations[operation_id]
-            operation.status = OperationStatus.CANCELLED
-            
-            # Notify subscribers about cancellation
-            await websocket_manager.broadcast_status(
-                operation_id,
-                {
-                    "status": OperationStatus.CANCELLED,
-                    "progress": operation.progress
-                }
-            )
-            
-            logger.info(f"Operation {operation_id} cancelled")
-            return True
-        return False
-
-    async def _process_queue(self, priority: OperationPriority):
-        """Process operations from a specific priority queue"""
-        queue = self.queues[priority]
-        while self.running:
-            try:
-                operation = await queue.get()
-                if operation.status == OperationStatus.CANCELLED:
-                    queue.task_done()
-                    continue
-
-                self.active_operations[operation.id] = operation
-                operation.status = OperationStatus.RUNNING
-                
-                # Notify subscribers that operation is running
-                await websocket_manager.broadcast_status(
-                    operation.id,
-                    {
-                        "status": OperationStatus.RUNNING,
-                        "progress": operation.progress
-                    }
-                )
-
-                try:
-                    # Execute the operation
-                    await self._execute_operation(operation)
-                    
-                    operation.status = OperationStatus.COMPLETED
-                    await websocket_manager.broadcast_status(
-                        operation.id,
-                        {
-                            "status": OperationStatus.COMPLETED,
-                            "progress": 100,
-                            "result": operation.result
-                        }
-                    )
-                except Exception as e:
-                    # Convert generic exceptions to ExecutionError
-                    error = e if isinstance(e, ExecutionError) else ExecutionError(str(e))
-                    
-                    # Handle retry logic
-                    await RetryHandler.handle_operation_failure(
-                        operation,
-                        error,
-                        context={
-                            "queue": priority.value,
-                            "attempt": operation.metadata.get("retry_count", 0) + 1
-                        },
-                        queue=self  # Inject self as the queue
-                    )
-                    
-                    # Broadcast current status
-                    await websocket_manager.broadcast_status(
-                        operation.id,
-                        {
-                            "status": operation.status,
-                            "error": operation.error,
-                            "metadata": operation.metadata
-                        }
-                    )
-                    
-                    if operation.status == OperationStatus.FAILED:
-                        logger.error(f"Operation {operation.id} failed: {operation.error}")
-                finally:
-                    if operation.status != OperationStatus.QUEUED:  # Don't remove if requeued for retry
-                        del self.active_operations[operation.id]
-                    queue.task_done()
-
-            except Exception as e:
-                logger.error(f"Error processing queue {priority}: {e}")
-                await asyncio.sleep(1)  # Prevent tight loop on persistent errors
-
-    async def _execute_operation(self, operation: Operation):
-        """Execute an operation with progress updates"""
-        if operation.status == OperationStatus.CANCELLED:
-            return
-
-        total_steps = 5
-        try:
-            for step in range(total_steps):
-                if operation.status == OperationStatus.CANCELLED:
-                    break
-                    
-                await asyncio.sleep(1)  # Simulate work
-                operation.progress = ((step + 1) / total_steps) * 100
-                
-                # Send progress update
-                await websocket_manager.broadcast_status(
-                    operation.id,
-                    {
-                        "status": OperationStatus.RUNNING,
-                        "progress": operation.progress,
-                        "metadata": operation.metadata
-                    }
-                )
-                
-                # Simulate random failures for testing retry mechanism
-                if operation.progress == 60 and not operation.metadata.get("retry_count"):
-                    raise ExecutionError(
-                        "Simulated failure for testing retry mechanism",
-                        details={"progress": operation.progress}
-                    )
-        except Exception as e:
-            # Let the caller handle the error for retry logic
-            raise ExecutionError(str(e), details={"progress": operation.progress})
-
-    async def start(self):
-        """Start processing operations from all queues"""
-        if self.running:
-            return
-
-        self.running = True
-        for priority in OperationPriority:
-            for _ in range(self.max_workers):
-                worker = asyncio.create_task(self._process_queue(priority))
-                self.workers[str(uuid4())] = worker
-
-        logger.info("Operation queue system started")
-
-    async def stop(self):
-        """Stop processing operations"""
-        self.running = False
-        
-        # Cancel all active workers
-        for worker_id, worker in self.workers.items():
-            worker.cancel()
-            try:
-                await worker
-            except asyncio.CancelledError:
-                pass
-        
-        self.workers.clear()
-        logger.info("Operation queue system stopped")
-
-
-# Global queue instance
-queue = OperationQueue()
+# Global queue manager instance
+queue_manager = OperationQueueManager()

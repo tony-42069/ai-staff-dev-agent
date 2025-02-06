@@ -80,6 +80,10 @@ const MonitoringDashboard: React.FC = () => {
     return `${gb.toFixed(2)} GB`;
   };
 
+  const getMetricValue = (value: number | undefined, defaultValue = 0) => {
+    return typeof value === 'number' ? value : defaultValue;
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
@@ -92,10 +96,10 @@ const MonitoringDashboard: React.FC = () => {
           <Card sx={{ p: 2 }}>
             <Typography variant="h6">CPU Usage</Typography>
             <Typography variant="h3" color="primary">
-              {systemMetrics?.cpu?.value?.percent.toFixed(1)}%
+              {getMetricValue(systemMetrics?.cpu?.value?.percent).toFixed(1)}%
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {systemMetrics?.cpu?.value?.count} Cores
+              {systemMetrics?.cpu?.value?.count || 0} Cores
             </Typography>
           </Card>
         </Grid>
@@ -104,10 +108,10 @@ const MonitoringDashboard: React.FC = () => {
           <Card sx={{ p: 2 }}>
             <Typography variant="h6">Memory Usage</Typography>
             <Typography variant="h3" color="primary">
-              {systemMetrics?.memory?.value?.percent.toFixed(1)}%
+              {getMetricValue(systemMetrics?.memory?.value?.percent).toFixed(1)}%
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {formatBytes(systemMetrics?.memory?.value?.available)} Available
+              {formatBytes(getMetricValue(systemMetrics?.memory?.value?.available))} Available
             </Typography>
           </Card>
         </Grid>
@@ -116,10 +120,10 @@ const MonitoringDashboard: React.FC = () => {
           <Card sx={{ p: 2 }}>
             <Typography variant="h6">Disk Usage</Typography>
             <Typography variant="h3" color="primary">
-              {systemMetrics?.disk?.value?.percent.toFixed(1)}%
+              {getMetricValue(systemMetrics?.disk?.value?.percent).toFixed(1)}%
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {formatBytes(systemMetrics?.disk?.value?.free)} Free
+              {formatBytes(getMetricValue(systemMetrics?.disk?.value?.free))} Free
             </Typography>
           </Card>
         </Grid>

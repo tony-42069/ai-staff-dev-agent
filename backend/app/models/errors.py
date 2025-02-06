@@ -1,144 +1,241 @@
-from typing import Dict, Optional
+"""Error models and handling for the application."""
 from enum import Enum
-
+from typing import Dict, Any, Optional
+from datetime import datetime
+from pydantic import BaseModel
 
 class ErrorCode(str, Enum):
-    """Error codes for operation failures"""
-    VALIDATION_ERROR = "validation_error"
-    EXECUTION_ERROR = "execution_error"
-    TIMEOUT_ERROR = "timeout_error"
-    RESOURCE_ERROR = "resource_error"
-    PERMISSION_ERROR = "permission_error"
-    SYSTEM_ERROR = "system_error"
-    NETWORK_ERROR = "network_error"
-    QUEUE_ERROR = "queue_error"
-
+    """Enumeration of error codes."""
+    # General errors
+    UNKNOWN = "UNKNOWN"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
+    INVALID_REQUEST = "INVALID_REQUEST"
+    NOT_FOUND = "NOT_FOUND"
+    UNAUTHORIZED = "UNAUTHORIZED"
+    FORBIDDEN = "FORBIDDEN"
+    VALIDATION_ERROR = "VALIDATION_ERROR"
+    
+    # Operation errors
+    OPERATION_FAILED = "OPERATION_FAILED"
+    OPERATION_TIMEOUT = "OPERATION_TIMEOUT"
+    OPERATION_CANCELLED = "OPERATION_CANCELLED"
+    OPERATION_NOT_SUPPORTED = "OPERATION_NOT_SUPPORTED"
+    
+    # Resource errors
+    RESOURCE_NOT_FOUND = "RESOURCE_NOT_FOUND"
+    RESOURCE_EXISTS = "RESOURCE_EXISTS"
+    RESOURCE_BUSY = "RESOURCE_BUSY"
+    RESOURCE_EXHAUSTED = "RESOURCE_EXHAUSTED"
+    
+    # Agent errors
+    AGENT_NOT_FOUND = "AGENT_NOT_FOUND"
+    AGENT_UNAVAILABLE = "AGENT_UNAVAILABLE"
+    AGENT_ERROR = "AGENT_ERROR"
+    CAPABILITY_NOT_FOUND = "CAPABILITY_NOT_FOUND"
+    
+    # Project errors
+    PROJECT_NOT_FOUND = "PROJECT_NOT_FOUND"
+    PROJECT_EXISTS = "PROJECT_EXISTS"
+    PROJECT_ERROR = "PROJECT_ERROR"
+    
+    # System errors
+    SYSTEM_ERROR = "SYSTEM_ERROR"
+    NETWORK_ERROR = "NETWORK_ERROR"
+    DATABASE_ERROR = "DATABASE_ERROR"
+    FILE_SYSTEM_ERROR = "FILE_SYSTEM_ERROR"
 
 class RetryStrategy(str, Enum):
-    """Retry strategies for failed operations"""
-    NO_RETRY = "no_retry"
-    IMMEDIATE = "immediate"
-    EXPONENTIAL_BACKOFF = "exponential_backoff"
-    LINEAR_BACKOFF = "linear_backoff"
+    """Enumeration of retry strategies."""
+    NO_RETRY = "NO_RETRY"
+    IMMEDIATE = "IMMEDIATE"
+    LINEAR_BACKOFF = "LINEAR_BACKOFF"
+    EXPONENTIAL_BACKOFF = "EXPONENTIAL_BACKOFF"
 
+class ErrorContext(BaseModel):
+    """Context information for errors."""
+    timestamp: datetime
+    request_id: Optional[str] = None
+    user_id: Optional[str] = None
+    component: Optional[str] = None
+    operation: Optional[str] = None
+    details: Dict[str, Any] = {}
 
 class OperationError(Exception):
-    """Base exception for operation-related errors"""
+    """Base class for operation errors."""
     def __init__(
         self,
-        code: ErrorCode,
         message: str,
-        details: Optional[Dict] = None,
+        code: ErrorCode = ErrorCode.UNKNOWN,
         retry_strategy: RetryStrategy = RetryStrategy.NO_RETRY,
-        max_retries: int = 0
+        max_retries: int = 0,
+        context: Optional[Dict[str, Any]] = None
     ):
-        self.code = code
+        super().__init__(message)
         self.message = message
-        self.details = details or {}
+        self.code = code
         self.retry_strategy = retry_strategy
         self.max_retries = max_retries
-        super().__init__(message)
+        self.context = ErrorContext(
+            timestamp=datetime.utcnow(),
+            details=context or {}
+        )
 
-    def to_dict(self) -> Dict:
-        """Convert error to dictionary format"""
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert error to dictionary."""
         return {
             "code": self.code,
             "message": self.message,
-            "details": self.details,
             "retry_strategy": self.retry_strategy,
-            "max_retries": self.max_retries
+            "max_retries": self.max_retries,
+            "context": self.context.dict()
         }
 
-
-class ValidationError(OperationError):
-    """Raised when operation parameters are invalid"""
-    def __init__(self, message: str, details: Optional[Dict] = None):
-        super().__init__(
-            code=ErrorCode.VALIDATION_ERROR,
-            message=message,
-            details=details,
-            retry_strategy=RetryStrategy.NO_RETRY
-        )
-
-
 class ExecutionError(OperationError):
-    """Raised when operation execution fails"""
-    def __init__(self, message: str, details: Optional[Dict] = None):
+    """Error during operation execution."""
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        retry_strategy: RetryStrategy = RetryStrategy.EXPONENTIAL_BACKOFF,
+        max_retries: int = 3
+    ):
         super().__init__(
-            code=ErrorCode.EXECUTION_ERROR,
-            message=message,
-            details=details,
-            retry_strategy=RetryStrategy.EXPONENTIAL_BACKOFF,
-            max_retries=3
+            message,
+            code=ErrorCode.OPERATION_FAILED,
+            retry_strategy=retry_strategy,
+            max_retries=max_retries,
+            context={"details": details or {}}
         )
-
 
 class TimeoutError(OperationError):
-    """Raised when operation times out"""
-    def __init__(self, message: str, details: Optional[Dict] = None):
+    """Operation timeout error."""
+    def __init__(
+        self,
+        message: str,
+        timeout: float,
+        retry_strategy: RetryStrategy = RetryStrategy.LINEAR_BACKOFF,
+        max_retries: int = 3
+    ):
         super().__init__(
-            code=ErrorCode.TIMEOUT_ERROR,
-            message=message,
-            details=details,
-            retry_strategy=RetryStrategy.LINEAR_BACKOFF,
-            max_retries=2
+            message,
+            code=ErrorCode.OPERATION_TIMEOUT,
+            retry_strategy=retry_strategy,
+            max_retries=max_retries,
+            context={"timeout": timeout}
         )
-
 
 class ResourceError(OperationError):
-    """Raised when required resources are unavailable"""
-    def __init__(self, message: str, details: Optional[Dict] = None):
+    """Resource-related error."""
+    def __init__(
+        self,
+        message: str,
+        resource_type: str,
+        resource_id: str,
+        retry_strategy: RetryStrategy = RetryStrategy.LINEAR_BACKOFF,
+        max_retries: int = 3
+    ):
         super().__init__(
-            code=ErrorCode.RESOURCE_ERROR,
-            message=message,
-            details=details,
-            retry_strategy=RetryStrategy.EXPONENTIAL_BACKOFF,
-            max_retries=5
+            message,
+            code=ErrorCode.RESOURCE_NOT_FOUND,
+            retry_strategy=retry_strategy,
+            max_retries=max_retries,
+            context={
+                "resource_type": resource_type,
+                "resource_id": resource_id
+            }
         )
-
-
-class PermissionError(OperationError):
-    """Raised when operation lacks required permissions"""
-    def __init__(self, message: str, details: Optional[Dict] = None):
-        super().__init__(
-            code=ErrorCode.PERMISSION_ERROR,
-            message=message,
-            details=details,
-            retry_strategy=RetryStrategy.NO_RETRY
-        )
-
-
-class SystemError(OperationError):
-    """Raised when system-level errors occur"""
-    def __init__(self, message: str, details: Optional[Dict] = None):
-        super().__init__(
-            code=ErrorCode.SYSTEM_ERROR,
-            message=message,
-            details=details,
-            retry_strategy=RetryStrategy.IMMEDIATE,
-            max_retries=1
-        )
-
 
 class NetworkError(OperationError):
-    """Raised when network-related errors occur"""
-    def __init__(self, message: str, details: Optional[Dict] = None):
+    """Network-related error."""
+    def __init__(
+        self,
+        message: str,
+        endpoint: Optional[str] = None,
+        retry_strategy: RetryStrategy = RetryStrategy.EXPONENTIAL_BACKOFF,
+        max_retries: int = 5
+    ):
         super().__init__(
+            message,
             code=ErrorCode.NETWORK_ERROR,
-            message=message,
-            details=details,
-            retry_strategy=RetryStrategy.EXPONENTIAL_BACKOFF,
-            max_retries=3
+            retry_strategy=retry_strategy,
+            max_retries=max_retries,
+            context={"endpoint": endpoint}
         )
 
-
 class QueueError(OperationError):
-    """Raised when queue-related errors occur"""
-    def __init__(self, message: str, details: Optional[Dict] = None):
+    """Queue-related error."""
+    def __init__(
+        self,
+        message: str,
+        queue_name: str,
+        retry_strategy: RetryStrategy = RetryStrategy.IMMEDIATE,
+        max_retries: int = 3
+    ):
         super().__init__(
-            code=ErrorCode.QUEUE_ERROR,
-            message=message,
-            details=details,
-            retry_strategy=RetryStrategy.LINEAR_BACKOFF,
-            max_retries=2
+            message,
+            code=ErrorCode.RESOURCE_BUSY,
+            retry_strategy=retry_strategy,
+            max_retries=max_retries,
+            context={"queue_name": queue_name}
+        )
+
+class ValidationError(OperationError):
+    """Validation error."""
+    def __init__(
+        self,
+        message: str,
+        field: Optional[str] = None,
+        value: Optional[Any] = None
+    ):
+        super().__init__(
+            message,
+            code=ErrorCode.VALIDATION_ERROR,
+            retry_strategy=RetryStrategy.NO_RETRY,
+            max_retries=0,
+            context={
+                "field": field,
+                "value": value
+            }
+        )
+
+class AgentError(OperationError):
+    """Agent-related error."""
+    def __init__(
+        self,
+        message: str,
+        agent_id: str,
+        capability: Optional[str] = None,
+        retry_strategy: RetryStrategy = RetryStrategy.LINEAR_BACKOFF,
+        max_retries: int = 3
+    ):
+        super().__init__(
+            message,
+            code=ErrorCode.AGENT_ERROR,
+            retry_strategy=retry_strategy,
+            max_retries=max_retries,
+            context={
+                "agent_id": agent_id,
+                "capability": capability
+            }
+        )
+
+class ProjectError(OperationError):
+    """Project-related error."""
+    def __init__(
+        self,
+        message: str,
+        project_id: str,
+        operation: Optional[str] = None,
+        retry_strategy: RetryStrategy = RetryStrategy.LINEAR_BACKOFF,
+        max_retries: int = 3
+    ):
+        super().__init__(
+            message,
+            code=ErrorCode.PROJECT_ERROR,
+            retry_strategy=retry_strategy,
+            max_retries=max_retries,
+            context={
+                "project_id": project_id,
+                "operation": operation
+            }
         )

@@ -28,7 +28,7 @@ A sophisticated framework for creating and managing AI development agents. This 
   - Progress tracking
   - Status reporting
 
-## 🚦 Getting Started
+## � Getting Started
 
 ### Prerequisites
 - Python 3.8+
@@ -94,7 +94,7 @@ ai-staff-dev-agent/
 └── README.md                    # Documentation
 ```
 
-## 📊 Current Status
+## � Current Status
 
 ✅ Core framework implemented  
 ✅ Agent creation and management working  
@@ -148,7 +148,7 @@ Contributions are welcome! Please follow these steps:
 4. Push to the branch
 5. Submit a pull request
 
-## 📜 License
+## � License
 
 
 This project is licensed under the MIT License - see the LICENSE file for details.

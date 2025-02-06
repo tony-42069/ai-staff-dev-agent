@@ -1,228 +1,236 @@
-from fastapi import APIRouter, HTTPException, Depends, status
-from typing import List
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
-from app.models.agent import Agent, AgentCreate, AgentUpdate
-from app.models.agent_operations import (
-    AssignToProjectRequest,
-    ExecuteCapabilityRequest,
-    OperationResponse,
-    AgentOperation
+"""API endpoints for agent management."""
+from typing import Dict, List, Any, Optional
+from fastapi import APIRouter, HTTPException, WebSocket, Query, Depends
+from datetime import datetime, timedelta
+
+from ...models.agent_operations import (
+    AgentCapability,
+    AgentOperation,
+    AgentStatus,
+    AgentMetrics,
+    AgentWorkload,
+    AgentEvent,
+    AgentMaintenanceWindow
 )
-from app.services.agent_service import AgentService, AgentNotFoundError, DuplicateAgentError
-from app.core.database import get_db
-from app.core.intelligence import get_core_intelligence
+from ...models.operations import (
+    Operation,
+    OperationStatus,
+    OperationType,
+    OperationPriority
+)
+from ...services.agent_service import agent_service
+from ...services.operation_queue import queue_manager
+from ...services.metrics_collector import collector
+from ...websockets.operations import operations_ws_manager
 
-router = APIRouter(prefix="/agents", tags=["agents"])
+router = APIRouter()
 
-@router.get("/", response_model=List[Agent])
-async def get_agents(db: AsyncSession = Depends(get_db)):
-    """Get all agents"""
-    service = AgentService(db)
-    try:
-        return await service.get_all()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch agents: {str(e)}"
-        )
-
-@router.post("/", response_model=Agent, status_code=status.HTTP_201_CREATED)
-async def create_agent(agent: AgentCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new agent"""
-    service = AgentService(db)
-    try:
-        return await service.create(agent)
-    except DuplicateAgentError as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(e)
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create agent: {str(e)}"
-        )
-
-@router.get("/{agent_id}", response_model=Agent)
-async def get_agent(agent_id: str, db: AsyncSession = Depends(get_db)):
-    """Get agent by ID"""
-    service = AgentService(db)
-    try:
-        agent = await service.get_by_id(agent_id)
-        if not agent:
-            raise AgentNotFoundError(f"Agent with id {agent_id} not found")
-        return agent
-    except AgentNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch agent: {str(e)}"
-        )
-
-@router.put("/{agent_id}", response_model=Agent)
-async def update_agent(agent_id: str, agent: AgentUpdate, db: AsyncSession = Depends(get_db)):
-    """Update an agent"""
-    service = AgentService(db)
-    try:
-        updated_agent = await service.update(agent_id, agent)
-        if not updated_agent:
-            raise AgentNotFoundError(f"Agent with id {agent_id} not found")
-        return updated_agent
-    except AgentNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except DuplicateAgentError as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(e)
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update agent: {str(e)}"
-        )
-
-@router.post("/{agent_id}/assign", response_model=OperationResponse)
-async def assign_to_project(
+@router.post("/agents/register")
+async def register_agent(
     agent_id: str,
-    request: AssignToProjectRequest,
-    db: AsyncSession = Depends(get_db)
+    capabilities: List[AgentCapability],
+    metadata: Optional[Dict[str, Any]] = None
 ):
-    """Assign an agent to a project with specific capabilities"""
-    service = AgentService(db)
+    """Register a new agent with capabilities."""
     try:
-        result = await service.assign_to_project(
+        await agent_service.register_agent(
             agent_id,
-            request.project_id,
-            request.capabilities
+            [cap.name for cap in capabilities],
+            metadata
         )
-        return OperationResponse(
-            status="success",
-            message=f"Agent {agent_id} assigned to project {request.project_id}",
-            data=result
+        return {"status": "success", "message": "Agent registered successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/agents/{agent_id}/deregister")
+async def deregister_agent(agent_id: str):
+    """Deregister an agent."""
+    try:
+        await agent_service.deregister_agent(agent_id)
+        return {"status": "success", "message": "Agent deregistered successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/agents/{agent_id}/heartbeat")
+async def update_heartbeat(agent_id: str):
+    """Update agent heartbeat."""
+    try:
+        await agent_service.update_agent_heartbeat(agent_id)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/agents/{agent_id}/status")
+async def get_agent_status(agent_id: str) -> AgentStatus:
+    """Get current status of an agent."""
+    try:
+        if agent_id not in agent_service.active_agents:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Agent {agent_id} not found"
+            )
+
+        agent_data = agent_service.active_agents[agent_id]
+        active_ops = [
+            op.id for op in queue_manager.active_operations.values()
+            if op.agent_id == agent_id
+        ]
+
+        return AgentStatus(
+            agent_id=agent_id,
+            status=agent_data["status"],
+            last_heartbeat=agent_data["last_heartbeat"],
+            current_operations=active_ops,
+            capabilities=agent_service.agent_capabilities[agent_id],
+            metadata=agent_data["metadata"]
         )
-    except AgentNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/agents/{agent_id}/metrics")
+async def get_agent_metrics(agent_id: str) -> AgentMetrics:
+    """Get performance metrics for an agent."""
+    try:
+        metrics = await agent_service.get_agent_metrics(agent_id)
+        return AgentMetrics(
+            agent_id=agent_id,
+            timestamp=datetime.utcnow(),
+            **metrics
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to assign agent: {str(e)}"
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/agents/{agent_id}/workload")
+async def get_agent_workload(agent_id: str) -> AgentWorkload:
+    """Get current workload for an agent."""
+    try:
+        active_ops = [
+            op for op in queue_manager.active_operations.values()
+            if op.agent_id == agent_id
+        ]
+        queued_ops = sum(
+            1 for queue in queue_manager.queues.values()
+            for op in queue.queue
+            if op[2].agent_id == agent_id
         )
 
-@router.post("/{agent_id}/execute", response_model=OperationResponse)
-async def execute_capability(
-    agent_id: str,
-    request: ExecuteCapabilityRequest,
-    db: AsyncSession = Depends(get_db),
-    core = Depends(get_core_intelligence)
-):
-    """Execute an agent capability on a project"""
-    service = AgentService(db, core)
-    try:
-        result = await service.execute_capability(
-            agent_id,
-            request.project_id,
-            request.capability,
-            request.parameters
-        )
-        return OperationResponse(
-            status="success",
-            message=f"Capability {request.capability} executed successfully",
-            data=result
-        )
-    except AgentNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
+        metrics = agent_service.agent_metrics[agent_id]
+        return AgentWorkload(
+            agent_id=agent_id,
+            active_operations=len(active_ops),
+            queued_operations=queued_ops,
+            completed_operations=metrics["operations_completed"],
+            failed_operations=metrics["operations_failed"],
+            average_processing_time=metrics["total_execution_time"] / max(metrics["operations_completed"], 1)
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to execute capability: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{agent_id}/operations/{project_id}", response_model=List[AgentOperation])
-async def get_project_operations(
+@router.post("/agents/{agent_id}/operations")
+async def create_agent_operation(
     agent_id: str,
     project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """Get all operations performed by an agent on a project"""
-    service = AgentService(db)
+    capability: str,
+    params: Dict[str, Any],
+    priority: OperationPriority = OperationPriority.NORMAL,
+    operation_type: Optional[OperationType] = None,
+    metadata: Optional[Dict[str, Any]] = None
+) -> Operation:
+    """Create a new operation for an agent."""
     try:
-        return await service.get_project_operations(agent_id, project_id)
-    except AgentNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+        operation = await agent_service.execute_operation(
+            project_id,
+            capability,
+            params,
+            priority,
+            operation_type,
+            metadata
         )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
-        )
+        return operation
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get operations: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=str(e))
 
-@router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_agent(agent_id: str, db: AsyncSession = Depends(get_db)):
-    """Delete an agent"""
-    service = AgentService(db)
+@router.post("/agents/{agent_id}/operations/{operation_id}/cancel")
+async def cancel_agent_operation(
+    agent_id: str,
+    operation_id: str
+):
+    """Cancel an agent operation."""
     try:
-        success = await service.delete(agent_id)
-        if not success:
-            raise AgentNotFoundError(f"Agent with id {agent_id} not found")
-        return None
-    except AgentNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(e)
-        )
+        await agent_service.cancel_operation(operation_id)
+        return {"status": "success", "message": "Operation cancelled"}
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete agent: {str(e)}"
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/agents/{agent_id}/operations")
+async def list_agent_operations(
+    agent_id: str,
+    status: Optional[OperationStatus] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    limit: int = Query(100, gt=0, le=1000)
+) -> List[Operation]:
+    """List operations for an agent."""
+    try:
+        operations = [
+            op for op in queue_manager.active_operations.values()
+            if op.agent_id == agent_id
+            and (not status or op.status == status)
+            and (not start_time or op.created_at >= start_time)
+            and (not end_time or op.created_at <= end_time)
+        ]
+        return operations[:limit]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/agents/{agent_id}/maintenance")
+async def schedule_maintenance(
+    agent_id: str,
+    window: AgentMaintenanceWindow
+):
+    """Schedule maintenance for an agent."""
+    try:
+        # Record maintenance window
+        collector.record_metric(
+            "agent",
+            f"maintenance.{agent_id}",
+            window.dict()
         )
+        return {"status": "success", "message": "Maintenance scheduled"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/agents/{agent_id}/events")
+async def record_agent_event(
+    agent_id: str,
+    event: AgentEvent
+):
+    """Record an agent event."""
+    try:
+        # Record event metrics
+        collector.record_metric(
+            "agent",
+            f"event.{agent_id}",
+            event.dict()
+        )
+        return {"status": "success", "message": "Event recorded"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.websocket("/agents/{agent_id}/ws")
+async def agent_websocket(
+    websocket: WebSocket,
+    agent_id: str,
+    client_id: str = Query(...),
+    subscriptions: Optional[List[str]] = Query(None)
+):
+    """WebSocket endpoint for real-time agent updates."""
+    subs = set(subscriptions or [])
+    subs.add(f"agent:{agent_id}")
+    await operations_ws_manager.handle_websocket(
+        websocket,
+        client_id,
+        subs
+    )

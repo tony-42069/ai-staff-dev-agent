@@ -1,175 +1,270 @@
+"""WebSocket handler for real-time operation updates."""
 import asyncio
+from typing import Dict, Set, Any, Optional
+from datetime import datetime
 import json
 import logging
-import uuid
-from typing import Dict, Set
-from fastapi import WebSocket, WebSocketDisconnect, Depends
-from fastapi.security import OAuth2PasswordBearer
-from ..models.operations import Operation, OperationMessage, OperationStatus, OperationUpdate
+from fastapi import WebSocket, WebSocketDisconnect
+
+from ..models.operations import Operation, OperationStatus
+from ..services.operation_queue import queue_manager
 
 logger = logging.getLogger(__name__)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-class ConnectionManager:
+class OperationsWebsocketManager:
+    """Manages WebSocket connections for operation updates."""
     def __init__(self):
-        self.active_connections: Dict[str, WebSocket] = {}
-        self.operation_subscribers: Dict[str, Set[str]] = {}
-        self.heartbeat_tasks: Dict[str, asyncio.Task] = {}
+        self.active_connections: Dict[str, Set[WebSocket]] = {
+            "all": set(),  # Connections receiving all updates
+            "system": set(),  # System-level updates
+        }
+        self.project_connections: Dict[str, Set[WebSocket]] = {}
+        self.agent_connections: Dict[str, Set[WebSocket]] = {}
+        self.client_subscriptions: Dict[WebSocket, Set[str]] = {}
 
-    async def connect(self, websocket: WebSocket, client_id: str):
-        """Handle new WebSocket connection"""
-        await websocket.accept()
-        self.active_connections[client_id] = websocket
-        self.heartbeat_tasks[client_id] = asyncio.create_task(
-            self._heartbeat(client_id, websocket)
-        )
-        logger.info(f"Client {client_id} connected")
-
-    async def disconnect(self, client_id: str):
-        """Handle WebSocket disconnection"""
-        if client_id in self.active_connections:
-            websocket = self.active_connections[client_id]
-            try:
-                await websocket.close()
-            except Exception:
-                pass
-            del self.active_connections[client_id]
+    async def connect(
+        self,
+        websocket: WebSocket,
+        client_id: str,
+        subscriptions: Optional[Set[str]] = None
+    ) -> None:
+        """Handle new WebSocket connection."""
+        try:
+            await websocket.accept()
             
-        # Cancel heartbeat task
-        if client_id in self.heartbeat_tasks:
-            self.heartbeat_tasks[client_id].cancel()
-            del self.heartbeat_tasks[client_id]
+            # Store client subscriptions
+            self.client_subscriptions[websocket] = subscriptions or {"all"}
+            
+            # Add to relevant connection sets
+            for subscription in self.client_subscriptions[websocket]:
+                if subscription.startswith("project:"):
+                    project_id = subscription.split(":")[1]
+                    if project_id not in self.project_connections:
+                        self.project_connections[project_id] = set()
+                    self.project_connections[project_id].add(websocket)
+                elif subscription.startswith("agent:"):
+                    agent_id = subscription.split(":")[1]
+                    if agent_id not in self.agent_connections:
+                        self.agent_connections[agent_id] = set()
+                    self.agent_connections[agent_id].add(websocket)
+                else:
+                    if subscription not in self.active_connections:
+                        self.active_connections[subscription] = set()
+                    self.active_connections[subscription].add(websocket)
 
-        # Remove client from all operation subscriptions
-        for subscribers in self.operation_subscribers.values():
-            subscribers.discard(client_id)
+            logger.info(
+                "Client %s connected with subscriptions: %s",
+                client_id,
+                subscriptions
+            )
 
-        logger.info(f"Client {client_id} disconnected")
+            # Send initial state
+            await self._send_initial_state(websocket, subscriptions)
 
-    async def subscribe_to_operation(self, client_id: str, operation_id: str):
-        """Subscribe client to operation updates"""
-        if operation_id not in self.operation_subscribers:
-            self.operation_subscribers[operation_id] = set()
-        self.operation_subscribers[operation_id].add(client_id)
-        logger.info(f"Client {client_id} subscribed to operation {operation_id}")
-
-    async def unsubscribe_from_operation(self, client_id: str, operation_id: str):
-        """Unsubscribe client from operation updates"""
-        if operation_id in self.operation_subscribers:
-            self.operation_subscribers[operation_id].discard(client_id)
-            if not self.operation_subscribers[operation_id]:
-                del self.operation_subscribers[operation_id]
-        logger.info(f"Client {client_id} unsubscribed from operation {operation_id}")
-
-    async def broadcast_status(self, operation_id: str, update: OperationUpdate):
-        """Broadcast operation status to all subscribed clients"""
-        if operation_id not in self.operation_subscribers:
-            return
-
-        message = OperationMessage(
-            type="status" if update.status != OperationStatus.COMPLETED else "complete",
-            operation_id=operation_id,
-            data={
-                "status": update.status,
-                "progress": update.progress,
-                "result": update.result,
-                "error": update.error,
-                "metadata": update.metadata
-            }
-        )
-
-        dead_clients = set()
-        for client_id in self.operation_subscribers[operation_id]:
-            websocket = self.active_connections.get(client_id)
-            if websocket:
-                try:
-                    await websocket.send_json(message.dict())
-                except WebSocketDisconnect:
-                    dead_clients.add(client_id)
-                except Exception as e:
-                    logger.error(f"Error sending message to client {client_id}: {e}")
-                    dead_clients.add(client_id)
-
-        # Clean up dead connections
-        for client_id in dead_clients:
-            await self.disconnect(client_id)
-
-    async def _heartbeat(self, client_id: str, websocket: WebSocket):
-        """Send periodic heartbeat to keep connection alive"""
-        try:
-            while True:
-                await asyncio.sleep(30)  # Heartbeat every 30 seconds
-                try:
-                    await websocket.send_json({"type": "heartbeat"})
-                except Exception:
-                    await self.disconnect(client_id)
-                    break
-        except asyncio.CancelledError:
-            pass
-
-    async def handle_client_message(self, client_id: str, message: dict):
-        """Handle incoming messages from clients"""
-        try:
-            msg_type = message.get("type")
-            if msg_type == "subscribe":
-                operation_id = message.get("operation_id")
-                if operation_id:
-                    await self.subscribe_to_operation(client_id, operation_id)
-            elif msg_type == "unsubscribe":
-                operation_id = message.get("operation_id")
-                if operation_id:
-                    await self.unsubscribe_from_operation(client_id, operation_id)
         except Exception as e:
-            logger.error(f"Error handling client message: {e}")
-            websocket = self.active_connections.get(client_id)
-            if websocket:
+            logger.error("Error in WebSocket connection: %s", e)
+            await self.disconnect(websocket)
+            raise
+
+    async def disconnect(self, websocket: WebSocket) -> None:
+        """Handle WebSocket disconnection."""
+        try:
+            # Remove from all connection sets
+            subscriptions = self.client_subscriptions.pop(websocket, set())
+            
+            for subscription in subscriptions:
+                if subscription.startswith("project:"):
+                    project_id = subscription.split(":")[1]
+                    if project_id in self.project_connections:
+                        self.project_connections[project_id].discard(websocket)
+                elif subscription.startswith("agent:"):
+                    agent_id = subscription.split(":")[1]
+                    if agent_id in self.agent_connections:
+                        self.agent_connections[agent_id].discard(websocket)
+                else:
+                    if subscription in self.active_connections:
+                        self.active_connections[subscription].discard(websocket)
+
+            logger.info("Client disconnected")
+
+        except Exception as e:
+            logger.error("Error in WebSocket disconnection: %s", e)
+
+    async def broadcast_operation_update(
+        self,
+        operation: Operation,
+        update_type: str = "update"
+    ) -> None:
+        """Broadcast operation update to relevant clients."""
+        message = {
+            "type": update_type,
+            "timestamp": datetime.utcnow().isoformat(),
+            "operation": {
+                "id": operation.id,
+                "project_id": operation.project_id,
+                "agent_id": operation.agent_id,
+                "type": operation.type,
+                "capability": operation.capability,
+                "status": operation.status,
+                "progress": operation.progress,
+                "error": operation.error,
+                "result": operation.result,
+                "metadata": operation.metadata
+            }
+        }
+
+        # Determine target connections
+        targets = set()
+        
+        # Add connections subscribed to all updates
+        targets.update(self.active_connections.get("all", set()))
+        
+        # Add project-specific connections
+        if operation.project_id:
+            targets.update(
+                self.project_connections.get(operation.project_id, set())
+            )
+        
+        # Add agent-specific connections
+        if operation.agent_id:
+            targets.update(
+                self.agent_connections.get(operation.agent_id, set())
+            )
+
+        # Broadcast to all targets
+        for websocket in targets:
+            try:
+                await websocket.send_json(message)
+            except Exception as e:
+                logger.error(
+                    "Error sending operation update to client: %s",
+                    e
+                )
+                await self.disconnect(websocket)
+
+    async def broadcast_queue_status(self) -> None:
+        """Broadcast queue status updates."""
+        while True:
+            try:
+                status = {
+                    "type": "queue_status",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "queues": {
+                        name: queue_manager.get_queue_status(name).dict()
+                        for name in queue_manager.queues.keys()
+                    }
+                }
+
+                # Send to system subscribers
+                for websocket in self.active_connections.get("system", set()):
+                    try:
+                        await websocket.send_json(status)
+                    except Exception as e:
+                        logger.error(
+                            "Error sending queue status to client: %s",
+                            e
+                        )
+                        await self.disconnect(websocket)
+
+                await asyncio.sleep(5)  # Update every 5 seconds
+
+            except Exception as e:
+                logger.error("Error in queue status broadcast: %s", e)
+                await asyncio.sleep(1)
+
+    async def _send_initial_state(
+        self,
+        websocket: WebSocket,
+        subscriptions: Set[str]
+    ) -> None:
+        """Send initial state to new connection."""
+        try:
+            # Send active operations
+            active_ops = []
+            for op in queue_manager.active_operations.values():
+                # Check if operation matches subscriptions
+                if (
+                    "all" in subscriptions
+                    or f"project:{op.project_id}" in subscriptions
+                    or f"agent:{op.agent_id}" in subscriptions
+                ):
+                    active_ops.append({
+                        "id": op.id,
+                        "project_id": op.project_id,
+                        "agent_id": op.agent_id,
+                        "type": op.type,
+                        "capability": op.capability,
+                        "status": op.status,
+                        "progress": op.progress,
+                        "metadata": op.metadata
+                    })
+
+            if active_ops:
                 await websocket.send_json({
-                    "type": "error",
-                    "data": {"message": "Invalid message format"}
+                    "type": "initial_state",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "active_operations": active_ops
                 })
 
+            # Send queue status if subscribed
+            if "system" in subscriptions:
+                status = {
+                    "type": "queue_status",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "queues": {
+                        name: queue_manager.get_queue_status(name).dict()
+                        for name in queue_manager.queues.keys()
+                    }
+                }
+                await websocket.send_json(status)
 
-# Global connection manager instance
-manager = ConnectionManager()
+        except Exception as e:
+            logger.error("Error sending initial state: %s", e)
+            await self.disconnect(websocket)
 
-async def get_token(websocket: WebSocket):
-    """Extract and validate token from WebSocket query parameters"""
+# Global WebSocket manager instance
+operations_ws_manager = OperationsWebsocketManager()
+
+async def handle_websocket(
+    websocket: WebSocket,
+    client_id: str,
+    subscriptions: Optional[Set[str]] = None
+) -> None:
+    """Handle WebSocket connection lifecycle."""
     try:
-        token = websocket.query_params.get("token")
-        if not token:
-            await websocket.close(code=4001, reason="Missing authentication token")
-            return None
-        # TODO: Add token validation logic here
-        return token
-    except Exception as e:
-        logger.error(f"Authentication error: {e}")
-        await websocket.close(code=4001, reason="Authentication failed")
-        return None
-
-async def handle_websocket(websocket: WebSocket):
-    """Main WebSocket connection handler"""
-    client_id = str(uuid.uuid4())
-    token = await get_token(websocket)
-    if not token:
-        return
-
-    try:
-        await manager.connect(websocket, client_id)
+        await operations_ws_manager.connect(
+            websocket,
+            client_id,
+            subscriptions
+        )
         
         while True:
             try:
+                # Wait for messages (client commands, etc.)
                 message = await websocket.receive_json()
-                await manager.handle_client_message(client_id, message)
+                
+                # Handle client messages
+                if message.get("type") == "subscribe":
+                    new_subs = set(message.get("subscriptions", []))
+                    operations_ws_manager.client_subscriptions[websocket] = new_subs
+                
+                elif message.get("type") == "unsubscribe":
+                    operations_ws_manager.client_subscriptions[websocket].clear()
+                
             except WebSocketDisconnect:
-                await manager.disconnect(client_id)
+                await operations_ws_manager.disconnect(websocket)
                 break
-            except json.JSONDecodeError:
-                logger.error("Received invalid JSON")
-                continue
+                
             except Exception as e:
-                logger.error(f"Error handling WebSocket message: {e}")
-                continue
+                logger.error("Error handling WebSocket message: %s", e)
+                await websocket.send_json({
+                    "type": "error",
+                    "message": str(e)
+                })
+                
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
-    finally:
-        await manager.disconnect(client_id)
+        logger.error("WebSocket handler error: %s", e)
+        try:
+            await operations_ws_manager.disconnect(websocket)
+        except:
+            pass
