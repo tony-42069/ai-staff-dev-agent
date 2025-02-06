@@ -6,7 +6,8 @@ from pylint.lint import Run
 from pylint.reporters import JSONReporter
 import io
 import sys
-import json
+import re
+from pathlib import Path
 
 @dataclass
 class CodeAnalysis:
@@ -50,83 +51,281 @@ class CodeAnalyzerCapability:
         Returns:
             CodeAnalysis object containing analysis results
         """
-        # Capture pylint output
+        # Run multiple analysis passes
+        pylint_results = self._run_pylint_analysis(code)
+        ast_metrics = self._calculate_ast_metrics(code)
+        patterns = self._detect_patterns(code)
+        suggestions = self._generate_suggestions(pylint_results, ast_metrics, patterns)
+        
+        # Calculate final quality score
+        quality_score = self._calculate_quality_score(pylint_results, ast_metrics, patterns)
+        
+        return CodeAnalysis(
+            quality_score=quality_score,
+            issues=pylint_results,
+            metrics={**ast_metrics, **patterns},
+            suggestions=suggestions
+        )
+
+    def _run_pylint_analysis(self, code: str) -> List[Dict[str, Any]]:
+        """Run pylint analysis on code"""
         pylint_output = io.StringIO()
         reporter = JSONReporter(pylint_output)
         
-        # Write code to a temporary file for pylint analysis
-        import tempfile
-        import os
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
-            temp_file.write(code)
-            temp_file.flush()
-            temp_path = temp_file.name
+        # Create temporary file for pylint
+        with Path('temp_code.py').open('w') as f:
+            f.write(code)
         
         try:
-            # Run pylint analysis on the temporary file
-            Run([temp_path, "--output-format=json", "--reports=n"], reporter=reporter, exit=False)
+            # Run pylint
+            Run(['temp_code.py', '--output-format=json'], reporter=reporter, exit=False)
             
-            # Parse pylint output line by line
-            pylint_issues = []
-            for line in pylint_output.getvalue().splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    # Parse each line as a separate JSON object
-                    issue_data = json.loads(line)
-                    # Keep original error type or convert based on message ID
-                    issue_type = issue_data.get("type", "unknown")
-                    if issue_data.get("message-id", "").startswith("E"):
-                        issue_type = "error"
-                    elif issue_data.get("symbol") in ["undefined-variable", "syntax-error"]:
-                        issue_type = "error"
-                    
-                    pylint_issues.append({
-                        "type": issue_type,
-                        "module": issue_data.get("module", ""),
-                        "obj": issue_data.get("obj", ""),
-                        "line": int(issue_data.get("line", 0)),
-                        "column": int(issue_data.get("column", 0)),
-                        "message": issue_data.get("message", "")
-                    })
-                except json.JSONDecodeError:
-                    continue  # Skip invalid JSON lines
+            # Parse results
+            results = []
+            for issue in ast.literal_eval(pylint_output.getvalue()):
+                results.append({
+                    "type": issue["type"],
+                    "module": issue["module"],
+                    "obj": issue["obj"],
+                    "line": issue["line"],
+                    "column": issue["column"],
+                    "message": issue["message"],
+                    "symbol": issue.get("symbol", "unknown")
+                })
+            return results
+        except Exception as e:
+            return [{
+                "type": "error",
+                "message": f"Pylint analysis failed: {str(e)}"
+            }]
         finally:
-            # Clean up temporary file
-            os.unlink(temp_path)
+            Path('temp_code.py').unlink(missing_ok=True)
 
-        # Calculate metrics using astroid
+    def _calculate_ast_metrics(self, code: str) -> Dict[str, Any]:
+        """Calculate metrics using AST analysis"""
         try:
             module = astroid.parse(code)
+            
+            # Basic metrics
             metrics = {
                 "num_classes": len(list(module.nodes_of_class(astroid.ClassDef))),
                 "num_methods": len(list(module.nodes_of_class(astroid.FunctionDef))),
                 "num_imports": len(list(module.nodes_of_class(astroid.Import))) + 
-                              len(list(module.nodes_of_class(astroid.ImportFrom)))
+                              len(list(module.nodes_of_class(astroid.ImportFrom))),
+                "lines_of_code": len(code.splitlines()),
+                "comment_lines": len([l for l in code.splitlines() if l.strip().startswith('#')])
             }
+            
+            # Complexity metrics
+            metrics.update(self._calculate_complexity_metrics(module))
+            
+            # Documentation metrics
+            metrics.update(self._calculate_documentation_metrics(module))
+            
+            return metrics
         except Exception as e:
-            metrics = {
-                "error": f"Error calculating metrics: {str(e)}"
-            }
+            return {"error": f"AST analysis failed: {str(e)}"}
 
-        # Generate improvement suggestions
-        suggestions = []
-        for issue in pylint_issues:
-            if issue["type"] in ["error", "warning"]:
-                suggestions.append(f"Line {issue['line']}: {issue['message']}")
+    def _calculate_complexity_metrics(self, module: astroid.Module) -> Dict[str, Any]:
+        """Calculate code complexity metrics"""
+        metrics = {
+            "max_depth": 0,
+            "max_complexity": 0,
+            "total_complexity": 0,
+            "num_branches": 0
+        }
+        
+        for node in module.nodes_of_class((astroid.FunctionDef, astroid.MethodDef)):
+            # Calculate cyclomatic complexity
+            complexity = 1  # Base complexity
+            complexity += len([n for n in node.nodes_of_class(astroid.If)])
+            complexity += len([n for n in node.nodes_of_class(astroid.For)])
+            complexity += len([n for n in node.nodes_of_class(astroid.While)])
+            complexity += len([n for n in node.nodes_of_class(astroid.ExceptHandler)])
+            
+            metrics["max_complexity"] = max(metrics["max_complexity"], complexity)
+            metrics["total_complexity"] += complexity
+            
+            # Calculate nesting depth
+            depth = 0
+            current = node
+            while current.parent:
+                if isinstance(current.parent, (astroid.FunctionDef, astroid.ClassDef)):
+                    depth += 1
+                current = current.parent
+            metrics["max_depth"] = max(metrics["max_depth"], depth)
+            
+            # Count branches
+            metrics["num_branches"] += len(list(node.nodes_of_class((
+                astroid.If, astroid.For, astroid.While, astroid.ExceptHandler
+            ))))
+        
+        return metrics
 
-        # Calculate quality score (0-10 scale)
-        total_issues = len(pylint_issues)
-        quality_score = float(max(0, min(10, 10 - (total_issues * 0.5))))
-
-        return CodeAnalysis(
-            quality_score=quality_score,
-            issues=pylint_issues,
-            metrics=metrics,
-            suggestions=suggestions
+    def _calculate_documentation_metrics(self, module: astroid.Module) -> Dict[str, Any]:
+        """Calculate documentation coverage metrics"""
+        metrics = {
+            "documented_classes": 0,
+            "documented_methods": 0,
+            "total_classes": 0,
+            "total_methods": 0
+        }
+        
+        for node in module.nodes_of_class(astroid.ClassDef):
+            metrics["total_classes"] += 1
+            if node.doc:
+                metrics["documented_classes"] += 1
+            
+            for method in node.nodes_of_class(astroid.FunctionDef):
+                metrics["total_methods"] += 1
+                if method.doc:
+                    metrics["documented_methods"] += 1
+        
+        # Calculate percentages
+        metrics["class_documentation_rate"] = (
+            (metrics["documented_classes"] / metrics["total_classes"] * 100)
+            if metrics["total_classes"] > 0 else 100
         )
+        metrics["method_documentation_rate"] = (
+            (metrics["documented_methods"] / metrics["total_methods"] * 100)
+            if metrics["total_methods"] > 0 else 100
+        )
+        
+        return metrics
+
+    def _detect_patterns(self, code: str) -> Dict[str, Any]:
+        """Detect code patterns and anti-patterns"""
+        patterns = {
+            "patterns_found": [],
+            "anti_patterns_found": []
+        }
+        
+        # Good patterns
+        if re.search(r'def\s+__init__\s*\(self', code):
+            patterns["patterns_found"].append("proper_class_initialization")
+        
+        if re.search(r'class\s+\w+\([\w\s,]+\):', code):
+            patterns["patterns_found"].append("inheritance_used")
+        
+        if re.search(r'try\s*:', code) and re.search(r'except\s+\w+\s+as\s+\w+:', code):
+            patterns["patterns_found"].append("proper_exception_handling")
+        
+        if re.search(r'with\s+[\w\s\(\)]+:', code):
+            patterns["patterns_found"].append("context_manager_used")
+        
+        if re.search(r'@property', code):
+            patterns["patterns_found"].append("property_decorator_used")
+        
+        # Anti-patterns
+        if re.search(r'except\s*:', code):
+            patterns["anti_patterns_found"].append("bare_except")
+        
+        if re.search(r'global\s+\w+', code):
+            patterns["anti_patterns_found"].append("global_variable_used")
+        
+        if re.search(r'\w+\s*=\s*\[\];\s*for\s+', code):
+            patterns["anti_patterns_found"].append("list_comprehension_alternative")
+        
+        if re.search(r'print\s*\(', code):
+            patterns["anti_patterns_found"].append("print_for_debugging")
+        
+        return patterns
+
+    def _generate_suggestions(
+        self,
+        pylint_results: List[Dict[str, Any]],
+        ast_metrics: Dict[str, Any],
+        patterns: Dict[str, Any]
+    ) -> List[str]:
+        """Generate improvement suggestions based on analysis results"""
+        suggestions = []
+        
+        # Complexity suggestions
+        if ast_metrics.get("max_complexity", 0) > self.parameters["max_complexity"]:
+            suggestions.append(
+                f"High complexity detected (score: {ast_metrics['max_complexity']}). "
+                "Consider breaking down complex functions into smaller ones."
+            )
+        
+        if ast_metrics.get("max_depth", 0) > 3:
+            suggestions.append(
+                f"Deep nesting detected (depth: {ast_metrics['max_depth']}). "
+                "Consider restructuring deeply nested code."
+            )
+        
+        # Documentation suggestions
+        doc_rate = ast_metrics.get("method_documentation_rate", 0)
+        if doc_rate < 80:
+            suggestions.append(
+                f"Low documentation coverage ({doc_rate:.1f}%). "
+                "Consider adding docstrings to undocumented methods."
+            )
+        
+        # Pattern-based suggestions
+        for anti_pattern in patterns.get("anti_patterns_found", []):
+            if anti_pattern == "bare_except":
+                suggestions.append(
+                    "Avoid bare 'except' clauses. "
+                    "Catch specific exceptions instead."
+                )
+            elif anti_pattern == "global_variable_used":
+                suggestions.append(
+                    "Global variables detected. "
+                    "Consider using class attributes or function parameters instead."
+                )
+            elif anti_pattern == "list_comprehension_alternative":
+                suggestions.append(
+                    "List building with loop detected. "
+                    "Consider using list comprehension for better readability."
+                )
+            elif anti_pattern == "print_for_debugging":
+                suggestions.append(
+                    "Print statements detected. "
+                    "Consider using proper logging for debugging."
+                )
+        
+        # Pylint-based suggestions
+        error_count = len([r for r in pylint_results if r["type"] in ("error", "warning")])
+        if error_count > 0:
+            suggestions.append(
+                f"Found {error_count} potential issues. "
+                "Review the detailed findings in the issues list."
+            )
+        
+        return suggestions
+
+    def _calculate_quality_score(
+        self,
+        pylint_results: List[Dict[str, Any]],
+        ast_metrics: Dict[str, Any],
+        patterns: Dict[str, Any]
+    ) -> float:
+        """Calculate overall code quality score (0-10)"""
+        score = 10.0  # Start with perfect score
+        
+        # Deduct for pylint issues
+        error_count = len([r for r in pylint_results if r["type"] == "error"])
+        warning_count = len([r for r in pylint_results if r["type"] == "warning"])
+        score -= error_count * 1.0  # -1.0 for each error
+        score -= warning_count * 0.5  # -0.5 for each warning
+        
+        # Deduct for complexity
+        if (max_complexity := ast_metrics.get("max_complexity", 0)) > self.parameters["max_complexity"]:
+            score -= (max_complexity - self.parameters["max_complexity"]) * 0.3
+        
+        # Deduct for documentation
+        doc_rate = ast_metrics.get("method_documentation_rate", 0)
+        if doc_rate < 80:
+            score -= (80 - doc_rate) / 20  # -1.0 for every 20% below 80%
+        
+        # Deduct for anti-patterns
+        score -= len(patterns.get("anti_patterns_found", [])) * 0.5
+        
+        # Add bonus for good patterns
+        score += len(patterns.get("patterns_found", [])) * 0.2
+        
+        # Ensure score stays within bounds
+        return max(0.0, min(10.0, score))
 
     def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -143,17 +342,17 @@ class CodeAnalyzerCapability:
         code = task.get("code")
         if not code:
             return {
-                "error": "No code provided for analysis"
+                "status": "error",
+                "message": "No code provided for analysis"
             }
 
         # Update parameters with any task-specific ones
-        parameters = task.get("parameters", {})
-        self.parameters.update(parameters)
+        self.parameters.update(task.get("parameters", {}))
 
         try:
             analysis = self.analyze_code(code)
             return {
-                "success": True,
+                "status": "success",
                 "quality_score": analysis.quality_score,
                 "issues": analysis.issues,
                 "metrics": analysis.metrics,
@@ -161,6 +360,6 @@ class CodeAnalyzerCapability:
             }
         except Exception as e:
             return {
-                "success": False,
-                "error": f"Analysis failed: {str(e)}"
+                "status": "error",
+                "message": f"Analysis failed: {str(e)}"
             }
