@@ -58,3 +58,12 @@ decision_matrix.py
 
 cline_docs/
 cline_docs
+
+# Archive documentation
+docs/archive/
+docs/old/
+docs/deprecated/
+docs/**/archive/
+
+# Keep documentation templates
+!docs/documentation_template/
