@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    image: {{ project_name }}:${TAG:-latest}
+    container_name: {{ project_name }}
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+      {% if settings.get('environment') %}
+      {% for key, value in settings.environment.items() %}
+      - {{ key }}={{ value }}
+      {% endfor %}
+      {% endif %}
+    ports:
+      - "8000:8000"  # Adjust if your app uses different ports
+    healthcheck:
+      test: ["CMD", "python", "-c", "import {{ project_name }}; print('Health check passed')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  dev:
+    extends:
+      service: app
+    command: ["python", "-m", "pytest", "--watch"]
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./tests:/app/tests
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
+      {% if settings.get('environment') %}
+      {% for key, value in settings.environment.items() %}
+      - {{ key }}={{ value }}
+      {% endfor %}
+      {% endif %}
+
+  docs:
+    extends:
+      service: app
+    command: ["mkdocs", "serve", "-a", "0.0.0.0:8000"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./docs:/app/docs
+      - ./site:/app/site
+
+networks:
+  default:
+    name: {{ project_name }}-network
+
+volumes:
+  data:
+    name: {{ project_name }}-data

@@ -1,0 +1,54 @@
+# Use multi-stage build for smaller final image
+FROM python:3.11-slim as builder
+
+# Set working directory
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy only requirements first to leverage Docker cache
+COPY requirements.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+
+# Copy package files
+COPY . .
+
+# Build wheel
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels .
+
+# Start fresh with minimal image
+FROM python:3.11-slim
+
+# Create non-root user
+RUN useradd -m appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy wheels from builder
+COPY --from=builder /app/wheels /app/wheels
+
+# Install package
+RUN pip install --no-cache /app/wheels/*
+
+# Switch to non-root user
+USER appuser
+
+# Set Python path
+ENV PYTHONPATH=/app
+
+# Run package
+CMD ["python", "-m", "{{ project_name }}"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD python -c "import {{ project_name }}; print('Health check passed')" || exit 1
+
+# Metadata
+LABEL maintainer="{{ author }} <{{ email }}>" \
+      version="{{ version }}" \
+      description="Docker image for {{ project_name }}"

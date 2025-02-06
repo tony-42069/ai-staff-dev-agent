@@ -1,0 +1,47 @@
+name: python_package
+description: A modern Python package template with testing, documentation, and CI/CD
+
+files:
+  - "setup.py": "setup"
+  - "README.md": "readme"
+  - "requirements.txt": "requirements"
+  - "pytest.ini": "pytest_ini"
+  - ".gitignore": "gitignore"
+  - "src/__init__.py": "init"
+  - "src/{{project_name}}/__init__.py": "package_init"
+  - "src/{{project_name}}/core.py": "core"
+  - "tests/__init__.py": "test_init"
+  - "tests/test_core.py": "test_core"
+  - "docs/index.md": "docs_index"
+  - "docs/api.md": "docs_api"
+  - ".github/workflows/ci.yml": "github_ci"
+  - "Dockerfile": "dockerfile"
+  - "docker-compose.yml": "docker_compose"
+
+dependencies:
+  python:
+    - "pytest>=7.0.0"
+    - "pytest-cov>=4.0.0"
+    - "black>=22.0.0"
+    - "isort>=5.0.0"
+    - "mypy>=1.0.0"
+    - "pylint>=2.17.0"
+    - "mkdocs>=1.4.0"
+    - "mkdocs-material>=9.0.0"
+    - "mkdocstrings>=0.20.0"
+
+configuration:
+  author: "AI Staff Development Agent"
+  email: "agent@example.com"
+  version: "0.1.0"
+  python_version: ">=3.9"
+  license: "MIT"
+  keywords: ["python", "package", "template"]
+  classifiers:
+    - "Development Status :: 3 - Alpha"
+    - "Intended Audience :: Developers"
+    - "License :: OSI Approved :: MIT License"
+    - "Programming Language :: Python :: 3"
+    - "Programming Language :: Python :: 3.9"
+    - "Programming Language :: Python :: 3.10"
+    - "Programming Language :: Python :: 3.11"

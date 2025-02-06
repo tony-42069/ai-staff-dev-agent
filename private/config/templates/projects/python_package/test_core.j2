@@ -1,0 +1,94 @@
+"""Tests for {{ project_name }}.core module."""
+import pytest
+from {{ project_name }}.core import Example
+
+def test_example_initialization():
+    """Test Example class initialization."""
+    # Test default initialization
+    example = Example()
+    assert example.config == {}
+    assert example.state == {}
+
+    # Test initialization with config
+    config = {"key": "value"}
+    example = Example(config)
+    assert example.config == config
+    assert example.state == {}
+
+def test_example_run():
+    """Test Example.run method."""
+    example = Example()
+    
+    # Test without parameters
+    result = example.run()
+    assert isinstance(result, str)
+    assert "Hello from Example" in result
+
+    # Test with parameters
+    params = {"test": "value"}
+    result = example.run(params)
+    assert isinstance(result, str)
+    assert "Hello from Example" in result
+
+def test_process_data():
+    """Test Example.process_data method."""
+    example = Example()
+
+    # Test with list data
+    list_data = [1, 2, 3, 4, 5]
+    result = example.process_data(list_data)
+    assert result["type"] == "list"
+    assert result["count"] == 5
+    assert result["sample"] == [1, 2, 3]
+
+    # Test with dict data
+    dict_data = {"a": 1, "b": 2, "c": 3, "d": 4}
+    result = example.process_data(dict_data)
+    assert result["type"] == "dict"
+    assert set(result["keys"]) == {"a", "b", "c", "d"}
+    assert len(result["sample"]) <= 3
+
+def test_process_data_validation():
+    """Test Example.process_data validation."""
+    example = Example()
+
+    # Test empty input
+    with pytest.raises(ValueError, match="Input data cannot be empty"):
+        example.process_data([])
+
+    with pytest.raises(ValueError, match="Input data cannot be empty"):
+        example.process_data({})
+
+    # Test invalid input type
+    with pytest.raises(ValueError, match="Unsupported data type"):
+        example.process_data("invalid")  # type: ignore
+
+def test_context_manager():
+    """Test Example class as context manager."""
+    with Example() as example:
+        assert isinstance(example, Example)
+        example.state["test"] = "value"
+        assert example.state["test"] == "value"
+
+    # Verify cleanup after context exit
+    assert example.state == {}
+
+def test_cleanup():
+    """Test Example.cleanup method."""
+    example = Example()
+    example.state["test"] = "value"
+    assert example.state["test"] == "value"
+
+    example.cleanup()
+    assert example.state == {}
+
+@pytest.fixture
+def example_instance():
+    """Fixture providing an Example instance."""
+    return Example({"test": "config"})
+
+def test_with_fixture(example_instance):
+    """Test using the example_instance fixture."""
+    assert example_instance.config == {"test": "config"}
+    result = example_instance.run()
+    assert isinstance(result, str)
