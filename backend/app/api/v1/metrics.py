@@ -1,10 +1,11 @@
 """API endpoints for system metrics."""
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, WebSocket
 from pydantic import BaseModel
 
 from ...services.metrics_collector import collector
+from ...websockets.metrics import handle_metrics_websocket
 
 router = APIRouter()
 
@@ -98,13 +99,23 @@ async def record_metric(
 ):
     """Record a new metric value."""
     try:
-        collector.record_metric(category, name, value, metadata)
+        await collector.record_metric(category, name, value, metadata)
         return {"status": "success", "message": "Metric recorded"}
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to record metric: {str(e)}"
         )
+
+@router.websocket("/ws/metrics")
+async def metrics_websocket(
+    websocket: WebSocket,
+    client_id: str = Query(...),
+    subscriptions: Optional[str] = Query(None)
+):
+    """WebSocket endpoint for real-time metrics updates."""
+    subs = set(subscriptions.split(",")) if subscriptions else None
+    await handle_metrics_websocket(websocket, client_id, subs)
 
 @router.get("/metrics/system")
 async def get_system_metrics():
