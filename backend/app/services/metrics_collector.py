@@ -9,10 +9,18 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+logger = logging.getLogger(__name__)
+
+# Try to import psutil
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+    logger.warning("psutil not available - system metrics collection will be disabled")
+
 from ..core.database import async_session_maker
 from ..models.agent_operations import AgentMetric
-
-logger = logging.getLogger(__name__)
 
 class MetricsCollector:
     """Collects and manages system metrics."""
@@ -236,44 +244,41 @@ class MetricsCollector:
 
     def _get_memory_usage(self) -> Dict[str, float]:
         """Get memory usage metrics."""
-        try:
-            import psutil
-            vm = psutil.virtual_memory()
-            return {
-                'total': vm.total / (1024 * 1024 * 1024),  # GB
-                'available': vm.available / (1024 * 1024 * 1024),  # GB
-                'percent': vm.percent
-            }
-        except ImportError:
+        if not HAS_PSUTIL:
             logger.warning("psutil not available for memory metrics")
             return {}
+            
+        vm = psutil.virtual_memory()
+        return {
+            'total': vm.total / (1024 * 1024 * 1024),  # GB
+            'available': vm.available / (1024 * 1024 * 1024),  # GB
+            'percent': vm.percent
+        }
 
     def _get_cpu_usage(self) -> Dict[str, float]:
         """Get CPU usage metrics."""
-        try:
-            import psutil
-            return {
-                'percent': psutil.cpu_percent(interval=1),
-                'count': psutil.cpu_count()
-            }
-        except ImportError:
+        if not HAS_PSUTIL:
             logger.warning("psutil not available for CPU metrics")
             return {}
+            
+        return {
+            'percent': psutil.cpu_percent(interval=1),
+            'count': psutil.cpu_count()
+        }
 
     def _get_disk_usage(self) -> Dict[str, float]:
         """Get disk usage metrics."""
-        try:
-            import psutil
-            disk = psutil.disk_usage('/')
-            return {
-                'total': disk.total / (1024 * 1024 * 1024),  # GB
-                'used': disk.used / (1024 * 1024 * 1024),  # GB
-                'free': disk.free / (1024 * 1024 * 1024),  # GB
-                'percent': disk.percent
-            }
-        except ImportError:
+        if not HAS_PSUTIL:
             logger.warning("psutil not available for disk metrics")
             return {}
+            
+        disk = psutil.disk_usage('/')
+        return {
+            'total': disk.total / (1024 * 1024 * 1024),  # GB
+            'used': disk.used / (1024 * 1024 * 1024),  # GB
+            'free': disk.free / (1024 * 1024 * 1024),  # GB
+            'percent': disk.percent
+        }
 
 # Global metrics collector instance
 collector = MetricsCollector()

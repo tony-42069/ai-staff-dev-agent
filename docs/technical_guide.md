@@ -9,6 +9,7 @@ graph TD
     subgraph Frontend
         A[React Dashboard] --> B[WebSocket Client]
         A --> C[REST Client]
+        A --> M[Metrics Visualization]
     end
     
     subgraph Backend
@@ -17,10 +18,15 @@ graph TD
         F --> G[Template System]
         D --> H[Database]
         E --> I[Operation Queue]
+        I --> J[Retry Handler]
+        D --> K[WebSocket Server]
+        D --> L[Metrics Collector]
     end
     
-    B --> D
+    B --> K
     C --> D
+    K --> A
+    L --> M
 ```
 
 ### Component Details
@@ -158,9 +164,28 @@ CREATE TABLE operations (
     agent_id UUID REFERENCES agents(id),
     project_id UUID REFERENCES projects(id),
     type VARCHAR(100),
+    capability VARCHAR(100),
     status VARCHAR(50),
+    priority VARCHAR(20),
+    progress FLOAT,
     created_at TIMESTAMP,
-    completed_at TIMESTAMP
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    error TEXT,
+    result JSONB,
+    metadata JSONB,
+    retry_count INTEGER DEFAULT 0,
+    last_retry_at TIMESTAMP,
+    retry_strategy VARCHAR(50)
+);
+
+CREATE TABLE operation_metrics (
+    id UUID PRIMARY KEY,
+    operation_id UUID REFERENCES operations(id),
+    timestamp TIMESTAMP,
+    metric_type VARCHAR(50),
+    value JSONB,
+    metadata JSONB
 );
 ```
 
@@ -206,12 +231,31 @@ interface Project {
 
 ```typescript
 interface WebSocketMessage {
-  type: 'agent_operation' | 'project_update' | 'capability_execution';
+  type: 'agent_operation' | 'project_update' | 'capability_execution' | 'metrics_update' | 'queue_status';
+  timestamp: string;
   payload: {
-    operation: string;
-    status: string;
-    result?: any;
-    error?: string;
+    operation?: {
+      id: string;
+      type: string;
+      status: string;
+      progress: number;
+      result?: any;
+      error?: string;
+      retry_count?: number;
+      retry_strategy?: string;
+    };
+    metrics?: {
+      type: string;
+      value: any;
+      metadata?: Record<string, any>;
+    };
+    queue_status?: {
+      name: string;
+      total_operations: number;
+      active_operations: number;
+      waiting_operations: number;
+      average_wait_time: number;
+    };
   };
 }
 ```
@@ -256,6 +300,11 @@ docker compose logs -f agent-service
 - Frontend DevTools Performance tab
 - WebSocket latency metrics
 - Database query performance
+- Operation queue metrics
+- Agent performance tracking
+- Resource utilization monitoring
+- Real-time metrics visualization
+- Historical performance analysis
 
 ## Security Considerations
 

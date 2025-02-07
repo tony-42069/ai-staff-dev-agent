@@ -110,10 +110,20 @@ import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 const { startMeasure, endMeasure } = usePerformanceMonitor('ComponentName');
 ```
 
-2. View Metrics:
+2. Enable WebSocket Monitoring:
+```typescript
+// In your component:
+import { useWebSocket } from '@/services/websocket';
+
+const ws = useWebSocket();
+ws.subscribe('metrics');
+```
+
+3. View Real-time Metrics:
 - Open browser DevTools
 - Go to Performance tab
-- Check console for performance logs
+- Check Network tab for WebSocket messages
+- Monitor Console for performance logs
 
 ### 2. System Monitoring
 
@@ -125,9 +135,27 @@ const { startMeasure, endMeasure } = usePerformanceMonitor('ComponentName');
 
 2. View Dashboards:
 - System Metrics
-- Application Metrics
+  * CPU, Memory, Disk usage
+  * Network performance
+  * Resource allocation
+- Agent Metrics
+  * Operation throughput
+  * Success/failure rates
+  * Response times
+  * Resource utilization
+- Operation Queue Metrics
+  * Queue length
+  * Processing times
+  * Retry statistics
+  * Error rates
 - WebSocket Performance
+  * Connection status
+  * Message latency
+  * Subscription stats
 - Database Metrics
+  * Query performance
+  * Connection pool
+  * Transaction rates
 
 ## 🔧 Configuration
 
@@ -151,12 +179,33 @@ cp dashboard/frontend/.env.example dashboard/frontend/.env
 1. Update agent settings:
 ```powershell
 python private/config/templates/manage_config.py update-agent ExampleAgent \
-  '{"version": "1.0.0", "capabilities": ["code_review", "testing"]}'
+  '{
+    "version": "1.0.0",
+    "capabilities": ["code_review", "testing"],
+    "metrics": {
+      "collection_interval": 30,
+      "retention_period": "7d",
+      "performance_thresholds": {
+        "response_time": 5000,
+        "error_rate": 0.05,
+        "resource_usage": 0.8
+      }
+    },
+    "retry_strategy": {
+      "max_attempts": 3,
+      "initial_delay": 1000,
+      "max_delay": 5000,
+      "backoff_factor": 2
+    }
+  }'
 ```
 
 2. Verify configuration:
 ```powershell
 python private/config/templates/manage_config.py validate
+
+# Test metrics collection
+python private/config/templates/manage_config.py test-metrics ExampleAgent
 ```
 
 ## 🚨 Troubleshooting

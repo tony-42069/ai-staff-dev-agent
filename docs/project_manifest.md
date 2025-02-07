@@ -11,6 +11,10 @@ graph TD
     B --> F[Database]
     C --> G[Operation Queue]
     D --> H[Config Manager]
+    G --> I[Retry Handler]
+    B --> J[WebSocket Server]
+    J --> K[Real-time Updates]
+    B --> L[Metrics Collector]
 ```
 
 ## 🔑 Key Components & Entry Points
@@ -23,10 +27,14 @@ graph TD
 2. `backend/app/services/agent_service.py`
    - Agent lifecycle and operation handling
    - Key for agent-project interactions
+   - Real-time agent status monitoring
+   - Operation scheduling and retry logic
 
 3. `dashboard/frontend/src/components/Agents/AgentList.tsx`
    - Main agent management interface
    - Start here for UI modifications
+   - Real-time agent status updates
+   - Metrics visualization
 
 4. `private/config/templates/agent_class.py.template`
    - Base template for agent generation
@@ -35,6 +43,15 @@ graph TD
 5. `docker-compose.yml`
    - System deployment configuration
    - Service dependencies and networking
+
+6. `backend/app/models/operations.py`
+   - Operation tracking and management
+   - Queue system models
+   - Retry strategies
+
+7. `backend/app/websockets/operations.py`
+   - Real-time operation updates
+   - WebSocket communication
 
 ## 🚀 Essential Commands
 
@@ -105,11 +122,21 @@ graph LR
    - Check logs: `docker compose logs -f agent-service`
    - Verify config in `private/config/agents.yaml`
    - Check capability requirements
+   - Review operation queue status
+   - Check retry handler logs
 
 2. Frontend Connection Issues
    - Verify API endpoints in `.env`
    - Check WebSocket connection
    - Review browser console logs
+   - Monitor real-time updates
+   - Check metrics collector status
+
+3. Operation Failures
+   - Check operation status in queue
+   - Review retry attempts and strategies
+   - Monitor resource allocation
+   - Check agent availability
 
 ## 📈 Performance Guidelines
 

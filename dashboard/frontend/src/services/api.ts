@@ -6,6 +6,12 @@ interface ApiError {
   details?: any;
 }
 
+interface ApiErrorResponse {
+  code: string;
+  message: string;
+  details?: any;
+}
+
 class ApiService {
   private client: AxiosInstance;
   private baseURL: string;
@@ -42,7 +48,7 @@ class ApiService {
     // Response interceptor
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
+      (error: AxiosError<ApiErrorResponse>) => {
         if (error.response?.status === 401) {
           // Handle unauthorized access
           localStorage.removeItem('auth_token');
@@ -53,13 +59,14 @@ class ApiService {
     );
   }
 
-  private handleError(error: AxiosError): ApiError {
-    if (error.response) {
+  private handleError(error: AxiosError<ApiErrorResponse>): ApiError {
+    if (error.response?.data) {
       // Server responded with error
+      const errorData = error.response.data;
       return {
-        code: error.response.data.code || 'SERVER_ERROR',
-        message: error.response.data.message || 'Server error occurred',
-        details: error.response.data.details,
+        code: errorData.code || 'SERVER_ERROR',
+        message: errorData.message || 'Server error occurred',
+        details: errorData.details,
       };
     } else if (error.request) {
       // Request made but no response

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   LineChart,
   Line,
@@ -15,6 +15,7 @@ import { Card, Grid, Typography, Box, CircularProgress, Alert } from '@mui/mater
 import { useTheme } from '@mui/material/styles';
 import { MetricValue, SystemMetrics } from '../../types/metrics';
 import { api } from '../../services/api';
+import { useWebSocket } from '../../services/websocket';
 
 const MonitoringDashboard: React.FC = () => {
   const theme = useTheme();
@@ -25,8 +26,28 @@ const MonitoringDashboard: React.FC = () => {
   const [memoryHistory, setMemoryHistory] = useState<MetricValue[]>([]);
   const [diskHistory, setDiskHistory] = useState<MetricValue[]>([]);
 
+  const clientId = 'monitoring-dashboard';
+  const ws = useWebSocket(`/ws/metrics?client_id=${clientId}&subscriptions=system`);
+
+  const handleMetricUpdate = useCallback((data: any) => {
+    if (data.type === 'system_metrics') {
+      setSystemMetrics(data.metrics);
+    } else if (data.type === 'metric_update') {
+      const { category, name, value } = data.metric;
+      if (category === 'system') {
+        if (name === 'cpu_usage') {
+          setCpuHistory(prev => [...prev.slice(-29), { timestamp: data.timestamp, value }]);
+        } else if (name === 'memory_usage') {
+          setMemoryHistory(prev => [...prev.slice(-29), { timestamp: data.timestamp, value }]);
+        } else if (name === 'disk_usage') {
+          setDiskHistory(prev => [...prev.slice(-29), { timestamp: data.timestamp, value }]);
+        }
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    const fetchMetrics = async () => {
+    const fetchInitialData = async () => {
       try {
         const [system, cpuHist, memHist, diskHist] = await Promise.all([
           api.get('/metrics/system'),
@@ -48,11 +69,12 @@ const MonitoringDashboard: React.FC = () => {
       }
     };
 
-    fetchMetrics();
-    const interval = setInterval(fetchMetrics, 60000); // Update every minute
+    fetchInitialData();
 
-    return () => clearInterval(interval);
-  }, []);
+    if (ws) {
+      ws.onMessage(handleMetricUpdate);
+    }
+  }, [ws, handleMetricUpdate]);
 
   if (loading) {
     return (
