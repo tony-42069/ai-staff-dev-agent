@@ -5,7 +5,7 @@ from typing import List, Optional
 from app.core.database import get_db
 from app.models.project import Project, ProjectCreate, ProjectUpdate
 from app.models.database.project import ProjectModel
-from app.models.database.agent import AgentModel
+from app.models.database.agent import Agent
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -16,7 +16,7 @@ async def create_project(
 ):
     # Verify agent exists if agent_id is provided
     if project.agent_id:
-        agent_query = select(AgentModel).where(AgentModel.id == project.agent_id)
+        agent_query = select(Agent).where(Agent.id == project.agent_id)
         agent = await db.execute(agent_query)
         if not agent.scalar_one_or_none():
             raise HTTPException(status_code=404, detail="Agent not found")
@@ -73,7 +73,7 @@ async def update_project(
 
     # Verify agent exists if agent_id is being updated
     if project_update.agent_id:
-        agent_query = select(AgentModel).where(AgentModel.id == project_update.agent_id)
+        agent_query = select(Agent).where(Agent.id == project_update.agent_id)
         agent = await db.execute(agent_query)
         if not agent.scalar_one_or_none():
             raise HTTPException(status_code=404, detail="Agent not found")

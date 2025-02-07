@@ -86,6 +86,51 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
    - Milestone tracking
    - Future plans
 
+## 💬 Chat Session Management
+
+### Overview
+```mermaid
+graph TD
+    S[New Chat] --> T{Type}
+    T -->|Task| U[Create SessionID]
+    T -->|Query| V[Use Existing Session]
+    U --> W[Track Context]
+    V --> W
+    W --> X[Update Manifest]
+```
+
+### Key Components
+1. `src/core/intelligence.py`
+   - ChatSessionManager class
+   - Session state tracking
+   - Context preservation
+
+2. `backend/app/services/agent_service.py`
+   - Session lifecycle management
+   - Real-time status updates
+   - Operation context binding
+
+3. `dashboard/frontend/src/components/Agents/AgentList.tsx`
+   - Active sessions display
+   - Session status indicators
+   - Real-time updates via WebSocket
+
+### Common Tasks
+1. Starting New Chat
+   - Generate unique session ID
+   - Initialize context store
+   - Bind to active agent
+
+2. Managing Sessions
+   - Track active conversations
+   - Handle session timeouts
+   - Preserve context between messages
+
+3. Monitoring Status
+   - View active sessions
+   - Track session metrics
+   - Debug session issues
+
 ## 🔄 Development Workflow
 
 ```mermaid

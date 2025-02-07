@@ -20,7 +20,7 @@ except ImportError:
     logger.warning("psutil not available - system metrics collection will be disabled")
 
 from ..core.database import async_session_maker
-from ..models.agent_operations import AgentMetric
+from ..models.database.agent_metrics import AgentMetric
 
 class MetricsCollector:
     """Collects and manages system metrics."""
@@ -121,7 +121,7 @@ class MetricsCollector:
                 timestamp=datetime.utcnow(),
                 metric_type=metric_type,
                 value=value,
-                metadata=metadata or {}
+                metric_metadata=metadata or {}
             )
             db.add(metric)
             await db.commit()

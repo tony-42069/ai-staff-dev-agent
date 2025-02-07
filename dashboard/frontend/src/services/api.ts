@@ -17,7 +17,7 @@ class ApiService {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = import.meta.env.VITE_API_URL || '/api/v1';
+    this.baseURL = '/api/v1';
     this.client = axios.create({
       baseURL: this.baseURL,
       timeout: 30000,
@@ -192,3 +192,5 @@ class ApiService {
 }
 
 export const api = new ApiService();
+export const agentApi = api;
+export const projectApi = api;

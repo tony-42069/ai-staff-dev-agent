@@ -313,5 +313,15 @@ class OperationQueueManager:
         self.operation_handlers[capability] = handler
         logger.info("Registered handler for capability: %s", capability)
 
+    async def start(self) -> None:
+        """Start processing operations."""
+        logger.info("Starting operation queue processing")
+        asyncio.create_task(self.start_processing())
+
+    async def stop(self) -> None:
+        """Stop processing operations."""
+        logger.info("Stopping operation queue processing")
+        # Could add cleanup logic here if needed
+
 # Global queue manager instance
 queue_manager = OperationQueueManager()

@@ -8,8 +8,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  BarChart,
-  Bar,
 } from 'recharts';
 import { Card, Grid, Typography, Box, CircularProgress, Alert } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -175,7 +173,7 @@ const MonitoringDashboard: React.FC = () => {
                   dataKey="value.percent"
                   name="CPU Usage"
                   stroke={theme.palette.primary.main}
-                  dot={false}
+                  dot={true}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -206,7 +204,7 @@ const MonitoringDashboard: React.FC = () => {
                   dataKey="value.percent"
                   name="Memory Usage"
                   stroke={theme.palette.secondary.main}
-                  dot={false}
+                  dot={true}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -219,7 +217,7 @@ const MonitoringDashboard: React.FC = () => {
               Disk Usage History
             </Typography>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={diskHistory}>
+              <LineChart data={diskHistory}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="timestamp"
@@ -232,12 +230,14 @@ const MonitoringDashboard: React.FC = () => {
                   formatter={(value: number) => [`${value.toFixed(1)}%`, 'Disk Usage']}
                 />
                 <Legend />
-                <Bar
+                <Line
+                  type="monotone"
                   dataKey="value.percent"
                   name="Disk Usage"
-                  fill={theme.palette.info.main}
+                  stroke={theme.palette.info.main}
+                  dot={true}
                 />
-              </BarChart>
+              </LineChart>
             </ResponsiveContainer>
           </Card>
         </Grid>

@@ -37,7 +37,7 @@ class Agent(Base):
     last_heartbeat = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=False)
     version = Column(String, nullable=True)
-    metadata = Column(JSON, default=dict)
+    agent_metadata = Column(JSON, default=dict)
 
     # Relationships
     capabilities = relationship(
@@ -80,7 +80,7 @@ class Agent(Base):
             "is_active": self.is_active,
             "is_available": self.is_available,
             "version": self.version,
-            "metadata": self.metadata,
+            "metadata": self.agent_metadata,
             "capabilities": [cap.name for cap in self.capabilities]
         }
 
@@ -93,7 +93,7 @@ class Capability(Base):
     version = Column(String, nullable=True)
     parameters = Column(JSON, default=dict)
     required_resources = Column(JSON, default=dict)
-    metadata = Column(JSON, default=dict)
+    capability_metadata = Column(JSON, default=dict)
 
     # Relationships
     agents = relationship(
@@ -110,32 +110,7 @@ class Capability(Base):
             "version": self.version,
             "parameters": self.parameters,
             "required_resources": self.required_resources,
-            "metadata": self.metadata
-        }
-
-class AgentMetric(Base):
-    """Database model for agent metrics."""
-    __tablename__ = "agent_metrics"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    agent_id = Column(String, ForeignKey("agents.id"))
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    metric_type = Column(String)
-    value = Column(JSON)
-    metadata = Column(JSON, default=dict)
-
-    # Relationships
-    agent = relationship("Agent", back_populates="metrics")
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert metric to dictionary."""
-        return {
-            "id": self.id,
-            "agent_id": self.agent_id,
-            "timestamp": self.timestamp.isoformat(),
-            "metric_type": self.metric_type,
-            "value": self.value,
-            "metadata": self.metadata
+            "metadata": self.capability_metadata
         }
 
 class AgentEvent(Base):
@@ -149,7 +124,7 @@ class AgentEvent(Base):
     severity = Column(String, default="info")
     message = Column(Text)
     details = Column(JSON, default=dict)
-    metadata = Column(JSON, default=dict)
+    event_metadata = Column(JSON, default=dict)
 
     # Relationships
     agent = relationship("Agent", back_populates="events")
@@ -164,7 +139,7 @@ class AgentEvent(Base):
             "severity": self.severity,
             "message": self.message,
             "details": self.details,
-            "metadata": self.metadata
+            "metadata": self.event_metadata
         }
 
 class AgentMaintenanceWindow(Base):
@@ -178,7 +153,7 @@ class AgentMaintenanceWindow(Base):
     type = Column(String)  # scheduled, emergency, update
     status = Column(String, default="scheduled")
     impact = Column(String, default="none")
-    metadata = Column(JSON, default=dict)
+    maintenance_metadata = Column(JSON, default=dict)
 
     # Relationships
     agent = relationship("Agent", back_populates="maintenance_windows")
@@ -193,7 +168,7 @@ class AgentMaintenanceWindow(Base):
             "type": self.type,
             "status": self.status,
             "impact": self.impact,
-            "metadata": self.metadata
+            "metadata": self.maintenance_metadata
         }
 
 class AgentResource(Base):
@@ -207,7 +182,7 @@ class AgentResource(Base):
     total = Column(Integer)
     available = Column(Integer)
     reserved = Column(Integer)
-    metadata = Column(JSON, default=dict)
+    resource_metadata = Column(JSON, default=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert resource to dictionary."""
@@ -219,5 +194,5 @@ class AgentResource(Base):
             "total": self.total,
             "available": self.available,
             "reserved": self.reserved,
-            "metadata": self.metadata
+            "metadata": self.resource_metadata
         }

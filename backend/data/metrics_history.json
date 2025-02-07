@@ -1,0 +1,170 @@
+{
+  "system.memory_usage": [
+    {
+      "value": {
+        "total": 15.882732391357422,
+        "available": 7.5294342041015625,
+        "percent": 52.6
+      },
+      "timestamp": "2025-02-07T02:48:30.588412",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "total": 15.882732391357422,
+        "available": 7.572456359863281,
+        "percent": 52.3
+      },
+      "timestamp": "2025-02-07T02:49:31.595800",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "total": 15.882732391357422,
+        "available": 7.620689392089844,
+        "percent": 52.0
+      },
+      "timestamp": "2025-02-07T02:50:32.605618",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "total": 15.882732391357422,
+        "available": 7.670257568359375,
+        "percent": 51.7
+      },
+      "timestamp": "2025-02-07T02:51:33.613511",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "total": 15.882732391357422,
+        "available": 7.6819000244140625,
+        "percent": 51.6
+      },
+      "timestamp": "2025-02-07T02:52:34.624400",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "total": 15.882732391357422,
+        "available": 7.811122894287109,
+        "percent": 50.8
+      },
+      "timestamp": "2025-02-07T02:53:35.632206",
+      "metadata": {}
+    }
+  ],
+  "system.cpu_usage": [
+    {
+      "value": {
+        "percent": 90.7,
+        "count": 4
+      },
+      "timestamp": "2025-02-07T02:48:31.589217",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "percent": 29.1,
+        "count": 4
+      },
+      "timestamp": "2025-02-07T02:49:32.596468",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "percent": 31.7,
+        "count": 4
+      },
+      "timestamp": "2025-02-07T02:50:33.606332",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "percent": 28.7,
+        "count": 4
+      },
+      "timestamp": "2025-02-07T02:51:34.614247",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "percent": 25.2,
+        "count": 4
+      },
+      "timestamp": "2025-02-07T02:52:35.625128",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "percent": 29.1,
+        "count": 4
+      },
+      "timestamp": "2025-02-07T02:53:36.633257",
+      "metadata": {}
+    }
+  ],
+  "system.disk_usage": [
+    {
+      "value": {
+        "total": 931.4960899353027,
+        "used": 11.679313659667969,
+        "free": 919.8167762756348,
+        "percent": 1.3
+      },
+      "timestamp": "2025-02-07T02:48:31.589340",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "total": 931.4960899353027,
+        "used": 11.679317474365234,
+        "free": 919.8167724609375,
+        "percent": 1.3
+      },
+      "timestamp": "2025-02-07T02:49:32.596614",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "total": 931.4960899353027,
+        "used": 11.679317474365234,
+        "free": 919.8167724609375,
+        "percent": 1.3
+      },
+      "timestamp": "2025-02-07T02:50:33.606538",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "total": 931.4960899353027,
+        "used": 11.679317474365234,
+        "free": 919.8167724609375,
+        "percent": 1.3
+      },
+      "timestamp": "2025-02-07T02:51:34.614328",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "total": 931.4960899353027,
+        "used": 11.679317474365234,
+        "free": 919.8167724609375,
+        "percent": 1.3
+      },
+      "timestamp": "2025-02-07T02:52:35.625322",
+      "metadata": {}
+    },
+    {
+      "value": {
+        "total": 931.4960899353027,
+        "used": 11.679317474365234,
+        "free": 919.8167724609375,
+        "percent": 1.3
+      },
+      "timestamp": "2025-02-07T02:53:36.633460",
+      "metadata": {}
+    }
+  ]
+}

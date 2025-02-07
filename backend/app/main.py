@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import agents, projects, chat, metrics
 from app.websockets.operations import handle_websocket
 from app.websockets.metrics import handle_metrics_websocket, metrics_ws_manager
-from app.services.operation_queue import queue as operation_queue
+from app.services.operation_queue import queue_manager as operation_queue
 from app.services.metrics_collector import collector as metrics_collector
 
 app = FastAPI(
