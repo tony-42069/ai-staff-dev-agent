@@ -10,7 +10,6 @@ import {
   VStack,
   FormHelperText,
   Tag,
-  HStack,
   Text,
   Alert,
   AlertIcon,
@@ -26,8 +25,16 @@ import {
 } from '@chakra-ui/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Agent, agentApi } from '../../services/api';
 import { AddIcon } from '@chakra-ui/icons';
+import { api } from '../../services/api';
+
+interface Agent {
+  id: string;
+  name: string;
+  description?: string;
+  capabilities: string[];
+  status: string;
+}
 
 const VALID_CAPABILITIES = [
   'code_review',
@@ -51,10 +58,11 @@ const AgentForm = () => {
   const tagHoverBg = useColorModeValue('blue.100', 'blue.600');
 
   const createAgentMutation = useMutation({
-    mutationFn: async (newAgent: Omit<Agent, 'id' | 'created_at' | 'updated_at' | 'status'>) => {
-      const response = await agentApi.create({
-        ...newAgent,
-        status: 'idle'
+    mutationFn: async (newAgent: Omit<Agent, 'id' | 'status'>) => {
+      const response = await api.post('/api/v1/agents/register', {
+        agent_id: newAgent.name,
+        capabilities: newAgent.capabilities,
+        metadata: { description: newAgent.description }
       });
       return response.data;
     },
