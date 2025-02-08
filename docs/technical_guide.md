@@ -2,6 +2,31 @@
 
 ## System Architecture
 
+### 🎯 MVP Launch Status
+
+#### Recently Completed
+- Enhanced WebSocket stability features:
+  * Robust reconnection with exponential backoff
+  * Heartbeat mechanism for connection health
+  * Message queueing for disconnected state
+  * Comprehensive subscription management
+- Comprehensive monitoring system:
+  * System metrics collection (CPU, Memory, Disk)
+  * WebSocket health monitoring
+  * Real-time metrics visualization
+  * Metrics history management
+- Frontend-Backend Integration
+  * API proxy configuration for development
+  * Type-safe API response handling
+  * Real-time update system
+
+#### Current Focus (MVP Launch Priorities)
+- Container Stability
+  * Resource optimization
+  * Build process improvements
+  * Performance monitoring
+  * Error handling enhancements
+
 ### Core Components
 
 ```mermaid
@@ -10,6 +35,9 @@ graph TD
         A[React Dashboard] --> B[WebSocket Client]
         A --> C[REST Client]
         A --> M[Metrics Visualization]
+        B --> N[Connection Manager]
+        N --> O[Heartbeat System]
+        N --> P[Message Queue]
     end
     
     subgraph Backend
@@ -21,12 +49,16 @@ graph TD
         I --> J[Retry Handler]
         D --> K[WebSocket Server]
         D --> L[Metrics Collector]
+        K --> Q[Connection Monitor]
+        L --> R[Resource Monitor]
+        R --> S[Build Metrics]
     end
     
     B --> K
     C --> D
     K --> A
     L --> M
+    Q --> N
 ```
 
 ### Component Details
@@ -129,6 +161,72 @@ const { startMeasure, endMeasure } = usePerformanceMonitor('ComponentName');
 startMeasure();
 render(<Component />);
 endMeasure();
+```
+
+#### Build Optimization
+```bash
+# Enable BuildKit
+export DOCKER_BUILDKIT=1
+
+# Clean system before builds
+docker system prune -a
+
+# Monitor build
+docker stats
+```
+
+##### Resource Configuration
+```yaml
+# docker-compose.yml
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    deploy:
+      resources:
+        limits:
+          cpus: '6'
+          memory: '12G'
+        reservations:
+          cpus: '4'
+          memory: '8G'
+```
+
+##### Build Performance Tips
+- Use multi-stage builds
+- Implement layer caching
+- Optimize context size
+- Monitor resource usage
+- Set appropriate resource limits
+
+#### WebSocket Stability
+```typescript
+// Enhanced WebSocket configuration
+const ws = useWebSocket({
+  reconnectOptions: {
+    maxAttempts: 5,
+    backoffFactor: 1.5,
+    initialDelay: 1000,
+    maxDelay: 30000
+  },
+  heartbeat: {
+    interval: 30000,
+    timeout: 5000
+  },
+  queueing: {
+    enabled: true,
+    maxSize: 1000,
+    strategy: 'discard-old'
+  }
+});
+
+// Connection monitoring
+ws.on('metrics', (data) => {
+  console.log('Latency:', data.latency);
+  console.log('Message throughput:', data.throughput);
+  console.log('Connection stability:', data.stability);
+});
 ```
 
 ## Database Schema
@@ -327,20 +425,43 @@ docker compose logs -f agent-service
 
 ### Common Issues
 
-1. Agent Initialization Failures
+1. Container Build Failures
+   - Clean Docker system: `docker system prune -a`
+   - Increase resource allocation in Docker Desktop:
+     * CPUs: 6+ (minimum 4)
+     * Memory: 12GB+ (minimum 8GB)
+     * Swap: 4GB+
+     * Disk: 100GB+
+   - Enable BuildKit: `export DOCKER_BUILDKIT=1`
+   - Monitor build with `docker stats`
+   - Check network connectivity during large transfers
+   - Clear build cache if needed
+
+2. Container Stability Issues
+   - Monitor resource usage with `docker stats`
+   - Check container logs: `docker compose logs -f`
+   - Review resource limits in docker-compose.yml
+   - Ensure proper shutdown sequence
+   - Monitor system metrics in Grafana
+
+3. Agent Initialization Failures
    - Check configuration in `private/config/agents.yaml`
    - Verify capability requirements
    - Review service logs
+   - Monitor resource allocation
 
-2. Database Connection Issues
+4. Database Connection Issues
    - Check connection string
    - Verify migrations
    - Check database logs
+   - Monitor connection pool
 
-3. WebSocket Connection Problems
+5. WebSocket Connection Problems
    - Check network connectivity
    - Verify WebSocket URL
    - Review browser console logs
+   - Monitor heartbeat mechanism
+   - Check reconnection settings
 
 ## Best Practices
 

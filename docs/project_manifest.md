@@ -15,9 +15,34 @@ graph TD
     B --> J[WebSocket Server]
     J --> K[Real-time Updates]
     B --> L[Metrics Collector]
+    L --> M[Performance Dashboard]
+    J --> N[Connection Manager]
+    N --> O[Heartbeat System]
 ```
 
 ## 🔑 Key Components & Entry Points
+
+### ✅ Recently Completed
+- Frontend connectivity with proper error handling
+- Enhanced WebSocket stability features:
+  * Robust reconnection with exponential backoff
+  * Heartbeat mechanism for connection health
+  * Message queueing for disconnected state
+  * Comprehensive subscription management
+- Comprehensive monitoring system:
+  * System metrics collection (CPU, Memory, Disk)
+  * WebSocket health monitoring
+  * Real-time metrics visualization
+  * Metrics history management
+- Type-safe implementation across components
+- API proxy configuration for development
+- Basic agent management interface
+
+### 🚧 Current Focus (MVP Launch Priorities)
+- Resolving container stability issues
+- Optimizing build process
+- Resource management improvements
+- Final MVP testing and deployment
 
 ### Core Files
 1. `backend/app/core/intelligence.py`
@@ -43,6 +68,7 @@ graph TD
 5. `docker-compose.yml`
    - System deployment configuration
    - Service dependencies and networking
+   - Resource allocation settings
 
 6. `backend/app/models/operations.py`
    - Operation tracking and management
@@ -52,6 +78,7 @@ graph TD
 7. `backend/app/websockets/operations.py`
    - Real-time operation updates
    - WebSocket communication
+   - Connection stability management
 
 ## 🚀 Essential Commands
 
@@ -65,6 +92,9 @@ python -m pytest tests/
 
 # Deploy Production
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Monitor System
+docker compose logs -f
 ```
 
 ## 📚 Documentation Map
@@ -73,18 +103,20 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 1. [Quickstart Guide](quickstart.md)
    - Installation & basic setup
    - First-time configuration
+   - Resource requirements
 
 ### For Developers
 1. [Technical Guide](technical_guide.md)
    - System architecture
    - Development workflows
    - Testing procedures
+   - Build optimization guidelines
 
 ### For Project Managers
 1. [Roadmap & Strategy](roadmap.md)
    - Project vision
    - Milestone tracking
-   - Future plans
+   - MVP launch plan
 
 ## 💬 Chat Session Management
 
@@ -183,11 +215,20 @@ graph LR
    - Monitor resource allocation
    - Check agent availability
 
+4. Build and Container Issues
+   - Clean Docker system: `docker system prune`
+   - Monitor resource usage during builds
+   - Check for network connectivity issues
+   - Review container resource limits
+   - Clear build cache if needed
+
 ## 📈 Performance Guidelines
 
 - Monitor system metrics via Grafana
 - Review operation queue for bottlenecks
 - Check WebSocket latency in browser dev tools
+- Monitor container resource usage
+- Track build performance metrics
 
 ## 🔗 External Resources
 

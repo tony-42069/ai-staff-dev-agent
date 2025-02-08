@@ -1,14 +1,41 @@
 # Quickstart Guide
 
+## 🎯 MVP Launch Status (February 2025)
+
+### Recent Updates
+- Enhanced WebSocket stability features:
+  * Robust reconnection with exponential backoff
+  * Heartbeat mechanism for connection health
+  * Message queueing for disconnected state
+  * Comprehensive subscription management
+- Comprehensive monitoring system:
+  * System metrics collection (CPU, Memory, Disk)
+  * WebSocket health monitoring
+  * Real-time metrics visualization
+  * Metrics history management
+- Frontend-backend connectivity improvements
+- Type-safe implementation
+- API proxy configuration
+- Basic agent management interface
+
+### Current Focus (MVP Launch Priorities)
+- Resolving container stability issues
+- Optimizing build process
+- Resource management improvements
+- Final MVP testing and deployment
+
 ## 🚀 Prerequisites
 
 ### System Requirements
 - Windows 10 64-bit: Pro, Enterprise, or Education (Build 16299 or later)
 - WSL 2 feature enabled
 - BIOS-level hardware virtualization support enabled
-- 4GB system RAM minimum
+- 8GB system RAM minimum (16GB recommended for optimal performance)
+- 4+ CPU cores recommended
+- 100GB+ available disk space
 - Node.js 16 or later
 - Python 3.9 or later
+- Stable internet connection for large container builds
 
 ### Required Software
 1. Docker Desktop for Windows
@@ -38,11 +65,23 @@ docker compose version
 3. Configure Docker Desktop:
    - Open Docker Desktop
    - Settings → Resources
-   - Recommended allocations:
-     * CPUs: 4+
-     * Memory: 8GB+
-     * Swap: 2GB+
-     * Disk image size: 60GB+
+   - Required allocations:
+     * CPUs: 6+ (minimum 4)
+     * Memory: 12GB+ (minimum 8GB)
+     * Swap: 4GB+
+     * Disk image size: 100GB+
+
+4. Optimize Build Settings:
+   - Enable BuildKit for faster builds
+   - Configure build cache location
+   - Set network rate limits if needed
+   ```powershell
+   # Enable BuildKit
+   $env:DOCKER_BUILDKIT=1
+   
+   # Clean system before major builds
+   docker system prune -a
+   ```
 
 ### 2. Project Setup
 
@@ -68,6 +107,10 @@ npm install
 ### 1. Development Mode
 
 ```powershell
+# Prepare system
+docker system prune -a  # Clean up before starting
+docker compose pull     # Ensure latest base images
+
 # Start backend services
 docker compose up -d
 
@@ -91,6 +134,7 @@ docker compose logs -f
 1. Check Container Status:
 ```powershell
 docker compose ps
+docker stats  # Monitor resource usage
 ```
 
 2. Access Components:
@@ -115,7 +159,12 @@ const { startMeasure, endMeasure } = usePerformanceMonitor('ComponentName');
 // In your component:
 import { useWebSocket } from '@/services/websocket';
 
-const ws = useWebSocket();
+const ws = useWebSocket({
+  reconnectOptions: {
+    maxAttempts: 5,
+    backoffFactor: 1.5
+  }
+});
 ws.subscribe('metrics');
 ```
 
@@ -173,6 +222,7 @@ cp dashboard/frontend/.env.example dashboard/frontend/.env
 - API endpoints
 - Authentication keys
 - Monitoring endpoints
+- Resource limits
 
 ### 2. Agent Configuration
 
@@ -216,19 +266,26 @@ python private/config/templates/manage_config.py test-metrics ExampleAgent
    - Check WSL 2 installation
    - Verify virtualization in BIOS
    - Restart Docker Desktop
+   - Clear Docker cache and unused images
 
-2. Permission Issues:
-   - Run terminal as Administrator
-   - Check Windows user permissions
+2. Build Failures:
+   - Clean Docker system: `docker system prune -a`
+   - Increase resource allocation in Docker Desktop
+   - Check network connectivity
+   - Monitor resource usage during build
+   - Use BuildKit for better performance
 
 3. Resource Issues:
-   - Increase Docker Desktop resources
+   - Monitor container resource usage: `docker stats`
+   - Adjust container limits in docker-compose.yml
    - Close unnecessary applications
+   - Consider system upgrade if issues persist
 
 4. Network Issues:
    - Check port availability
    - Verify firewall settings
    - Check Docker network configuration
+   - Monitor network usage during builds
 
 ### Getting Help
 
@@ -270,4 +327,8 @@ alembic upgrade head
 
 4. Rebuild containers:
 ```powershell
-docker compose up -d --build
+# Clean up first
+docker system prune -a
+
+# Rebuild with fresh cache
+docker compose up -d --build --force-recreate
