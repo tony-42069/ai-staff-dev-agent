@@ -230,6 +230,9 @@ class MetricsCollector:
                 await self.record_metric('system', 'cpu_usage', self._get_cpu_usage())
                 await self.record_metric('system', 'disk_usage', self._get_disk_usage())
                 
+                # Collect WebSocket metrics
+                await self.record_metric('websocket', 'connections', self._get_websocket_metrics())
+                
                 # Save history periodically
                 self.save_history()
                 
@@ -279,6 +282,40 @@ class MetricsCollector:
             'free': disk.free / (1024 * 1024 * 1024),  # GB
             'percent': disk.percent
         }
+
+    def _get_websocket_metrics(self) -> Dict[str, Any]:
+        """Get WebSocket connection metrics."""
+        try:
+            from ..websockets.operations import operations_ws_manager
+            from ..websockets.metrics import metrics_ws_manager
+
+            ops_connections = len(operations_ws_manager.active_connections.get("all", set()))
+            metrics_connections = len(metrics_ws_manager.active_connections.get("all", set()))
+            
+            # Calculate heartbeat health percentage
+            total_ops_clients = len(operations_ws_manager.client_heartbeats)
+            healthy_ops_clients = sum(
+                1 for last_beat in operations_ws_manager.client_heartbeats.values()
+                if (datetime.utcnow() - last_beat).seconds < operations_ws_manager.HEARTBEAT_TIMEOUT
+            )
+            heartbeat_health = (healthy_ops_clients / total_ops_clients * 100) if total_ops_clients > 0 else 100
+
+            return {
+                'operations_connections': ops_connections,
+                'metrics_connections': metrics_connections,
+                'total_connections': ops_connections + metrics_connections,
+                'heartbeat_health_percent': heartbeat_health,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            logger.error("Error collecting WebSocket metrics: %s", e)
+            return {
+                'operations_connections': 0,
+                'metrics_connections': 0,
+                'total_connections': 0,
+                'heartbeat_health_percent': 0,
+                'error': str(e)
+            }
 
 # Global metrics collector instance
 collector = MetricsCollector()

@@ -5,6 +5,10 @@ from datetime import datetime
 import json
 import logging
 from fastapi import WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 from ..models.operations import Operation, OperationStatus
 from ..services.operation_queue import queue_manager
@@ -21,6 +25,8 @@ class OperationsWebsocketManager:
         self.project_connections: Dict[str, Set[WebSocket]] = {}
         self.agent_connections: Dict[str, Set[WebSocket]] = {}
         self.client_subscriptions: Dict[WebSocket, Set[str]] = {}
+        self.client_heartbeats: Dict[WebSocket, datetime] = {}
+        self.HEARTBEAT_TIMEOUT = 35  # Seconds (slightly higher than client's interval)
 
     async def connect(
         self,
@@ -28,12 +34,14 @@ class OperationsWebsocketManager:
         client_id: str,
         subscriptions: Optional[Set[str]] = None
     ) -> None:
+        """Handle new WebSocket connection with improved error handling and heartbeat."""
         """Handle new WebSocket connection."""
         try:
             await websocket.accept()
             
-            # Store client subscriptions
+            # Store client subscriptions and initialize heartbeat
             self.client_subscriptions[websocket] = subscriptions or {"all"}
+            self.client_heartbeats[websocket] = datetime.utcnow()
             
             # Add to relevant connection sets
             for subscription in self.client_subscriptions[websocket]:
@@ -58,6 +66,9 @@ class OperationsWebsocketManager:
                 subscriptions
             )
 
+            # Start heartbeat monitoring for this connection
+            asyncio.create_task(self._monitor_client_connection(websocket))
+
             # Send initial state
             await self._send_initial_state(websocket, subscriptions)
 
@@ -67,10 +78,12 @@ class OperationsWebsocketManager:
             raise
 
     async def disconnect(self, websocket: WebSocket) -> None:
+        """Handle WebSocket disconnection with cleanup."""
         """Handle WebSocket disconnection."""
         try:
-            # Remove from all connection sets
+            # Remove from all tracking dictionaries
             subscriptions = self.client_subscriptions.pop(websocket, set())
+            self.client_heartbeats.pop(websocket, None)
             
             for subscription in subscriptions:
                 if subscription.startswith("project:"):
@@ -222,6 +235,34 @@ class OperationsWebsocketManager:
             logger.error("Error sending initial state: %s", e)
             await self.disconnect(websocket)
 
+    async def _monitor_client_connection(self, websocket: WebSocket) -> None:
+        """Monitor client connection health."""
+        while True:
+            try:
+                if websocket not in self.client_heartbeats:
+                    break
+                
+                last_heartbeat = self.client_heartbeats[websocket]
+                if (datetime.utcnow() - last_heartbeat).seconds > self.HEARTBEAT_TIMEOUT:
+                    logger.warning("Client heartbeat timeout, closing connection")
+                    await self.disconnect(websocket)
+                    break
+                
+                await asyncio.sleep(self.HEARTBEAT_TIMEOUT // 2)
+            except Exception as e:
+                logger.error("Error in connection monitor: %s", e)
+                await self.disconnect(websocket)
+                break
+
+    async def handle_ping(self, websocket: WebSocket) -> None:
+        """Handle ping message from client."""
+        try:
+            self.client_heartbeats[websocket] = datetime.utcnow()
+            await websocket.send_json({"type": "pong"})
+        except Exception as e:
+            logger.error("Error handling ping: %s", e)
+            await self.disconnect(websocket)
+
 # Global WebSocket manager instance
 operations_ws_manager = OperationsWebsocketManager()
 
@@ -230,7 +271,7 @@ async def handle_websocket(
     client_id: str,
     subscriptions: Optional[Set[str]] = None
 ) -> None:
-    """Handle WebSocket connection lifecycle."""
+    """Handle WebSocket connection lifecycle with improved error handling."""
     try:
         await operations_ws_manager.connect(
             websocket,
@@ -244,23 +285,28 @@ async def handle_websocket(
                 message = await websocket.receive_json()
                 
                 # Handle client messages
-                if message.get("type") == "subscribe":
+                message_type = message.get("type")
+                if message_type == "subscribe":
                     new_subs = set(message.get("subscriptions", []))
                     operations_ws_manager.client_subscriptions[websocket] = new_subs
                 
-                elif message.get("type") == "unsubscribe":
+                elif message_type == "unsubscribe":
                     operations_ws_manager.client_subscriptions[websocket].clear()
                 
+                elif message_type == "ping":
+                    await operations_ws_manager.handle_ping(websocket)
+                
             except WebSocketDisconnect:
+                logger.info("Client %s disconnected", client_id)
                 await operations_ws_manager.disconnect(websocket)
                 break
-                
             except Exception as e:
                 logger.error("Error handling WebSocket message: %s", e)
-                await websocket.send_json({
-                    "type": "error",
-                    "message": str(e)
-                })
+                if isinstance(websocket.client_state, WebSocketState):
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": str(e)
+                    })
                 
     except Exception as e:
         logger.error("WebSocket handler error: %s", e)

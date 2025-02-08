@@ -111,7 +111,51 @@ const MonitoringDashboard: React.FC = () => {
       </Typography>
 
       <Grid container spacing={3}>
-        {/* Current Metrics Cards */}
+        {/* WebSocket Health Cards */}
+        <Grid item xs={12}>
+          <Typography variant="h5" gutterBottom sx={{ mt: 2 }}>
+            WebSocket Health
+          </Typography>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card sx={{ p: 2 }}>
+            <Typography variant="h6">Active Connections</Typography>
+            <Typography variant="h3" color="primary">
+              {getMetricValue(systemMetrics?.websocket?.value?.total_connections, 0)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Operations: {getMetricValue(systemMetrics?.websocket?.value?.operations_connections, 0)}
+              {' | '}
+              Metrics: {getMetricValue(systemMetrics?.websocket?.value?.metrics_connections, 0)}
+            </Typography>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card sx={{ p: 2 }}>
+            <Typography variant="h6">Connection Health</Typography>
+            <Typography variant="h3" 
+              color={
+                getMetricValue(systemMetrics?.websocket?.value?.heartbeat_health_percent, 100) >= 90 
+                  ? 'success.main' 
+                  : getMetricValue(systemMetrics?.websocket?.value?.heartbeat_health_percent, 100) >= 75 
+                    ? 'warning.main' 
+                    : 'error.main'
+              }
+            >
+              {getMetricValue(systemMetrics?.websocket?.value?.heartbeat_health_percent, 100).toFixed(1)}%
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Heartbeat Health
+            </Typography>
+          </Card>
+        </Grid>
+
+        {/* System Resource Cards */}
+        <Grid item xs={12}>
+          <Typography variant="h5" gutterBottom sx={{ mt: 2 }}>
+            System Resources
+          </Typography>
+        </Grid>
         <Grid item xs={12} md={4}>
           <Card sx={{ p: 2 }}>
             <Typography variant="h6">CPU Usage</Typography>
@@ -149,6 +193,11 @@ const MonitoringDashboard: React.FC = () => {
         </Grid>
 
         {/* Historical Charts */}
+        <Grid item xs={12}>
+          <Typography variant="h5" gutterBottom sx={{ mt: 2 }}>
+            Historical Metrics
+          </Typography>
+        </Grid>
         <Grid item xs={12}>
           <Card sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>

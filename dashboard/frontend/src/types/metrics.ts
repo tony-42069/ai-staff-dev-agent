@@ -12,6 +12,14 @@ export interface MetricValue {
   metadata?: Record<string, any>;
 }
 
+export interface WebSocketMetrics {
+  operations_connections: number;
+  metrics_connections: number;
+  total_connections: number;
+  heartbeat_health_percent: number;
+  timestamp: string;
+}
+
 export interface SystemMetrics {
   cpu?: {
     value: {
@@ -48,6 +56,10 @@ export interface SystemMetrics {
       errors_in: number;
       errors_out: number;
     };
+    metadata?: Record<string, any>;
+  };
+  websocket?: {
+    value: WebSocketMetrics;
     metadata?: Record<string, any>;
   };
   timestamp: string;
